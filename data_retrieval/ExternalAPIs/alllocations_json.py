@@ -1,6 +1,7 @@
 import os
 import json
 import cloudscraper
+import pandas as pd
 from dotenv import load_dotenv
 
 # Load environment variables from .env
@@ -35,3 +36,39 @@ resp = scraper.get(url, params=params, headers=headers)
 
 # Pretty-print JSON response
 print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
+
+data = resp.json()["buildings"]
+
+print(data)
+all_locations = []
+
+def get_locations():
+    for building in data:
+        building_locations = {
+            "location_id": building["id"],
+            "location_name": building["name"],
+            "location_type": building["type"],
+        }
+        all_locations.append(building_locations)
+
+    new_all_locations = pd.DataFrame(all_locations)
+    return new_all_locations
+
+all_restaurants = []
+def get_restaurants():
+    for building in data:  # loop over buildings
+        for restaurant in building["locations"]:  # loop over each restaurant inside building
+            restaurants = {
+                "restaurant_id": restaurant["id"],
+                "building_id": restaurant["building_id"],
+                "restaurant_name": restaurant["name"]
+            }
+            all_restaurants.append(restaurants)
+
+    new_all_restaurants = pd.DataFrame(all_restaurants)
+    return new_all_restaurants
+
+print(get_restaurants())
+
+print(get_locations())
+print(get_restaurants())
