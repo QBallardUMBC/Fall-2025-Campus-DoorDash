@@ -2,10 +2,14 @@ import os
 import json
 import cloudscraper
 import pandas as pd
+from datetime import date
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# Get date
+today = date.today().strftime("%Y-%m-%d")
 
 # Create a scraper session (bypasses Cloudflare)
 scraper = cloudscraper.create_scraper()
@@ -18,7 +22,7 @@ url = f"{API}/location/{LOCATION_EINSTEIN}/periods"
 # Query parameters
 params = {
     "platform": os.getenv("PLATFORM"),
-    "date": os.getenv("DEFAULT_DATE"),
+    "date": today
 }
 
 # Headers
@@ -31,13 +35,15 @@ headers = {
 
 # Make request
 resp = scraper.get(url, params=params, headers=headers)
+
+# Pretty-print JSON
+#print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
+
 data = resp.json()["menu"]
 _raw_periods = data.get("periods", [])
 periods = _raw_periods if isinstance(_raw_periods, list) else [_raw_periods]
 categories = periods["categories"]
 #items = categories["items"]
-# Pretty-print JSON
-#print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
 
 def get_period():
     all_periods = []

@@ -2,6 +2,7 @@ import os
 import json
 import cloudscraper
 import pandas as pd
+from datetime import date
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -9,6 +10,9 @@ load_dotenv()
 
 # Create a scraper session (handles Cloudflare)
 scraper = cloudscraper.create_scraper()
+
+# Get date
+today = date.today().strftime("%Y-%m-%d")
 
 # Build URL dynamically from env
 API = os.getenv("DINEONCAMPUS_API")
@@ -18,7 +22,7 @@ url = f"{API}/location/{LOCATION_WILDGREENS}/periods"
 # Query parameters
 params = {
     "platform": os.getenv("PLATFORM"),
-    "date": os.getenv("DEFAULT_DATE"),
+    "date": today
 }
 
 # Headers

@@ -161,4 +161,3 @@ print(get_manual_location_data())
 print(get_restaurants())
 
 print(get_locations())
-print(get_restaurants())

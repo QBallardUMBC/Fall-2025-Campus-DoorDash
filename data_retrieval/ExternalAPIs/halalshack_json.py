@@ -2,10 +2,14 @@ import os
 import json
 import cloudscraper
 import pandas as pd
+from datetime import date
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# Get Date
+today = date.today().strftime("%Y-%m-%d")
 
 # Create a scraper session (bypasses Cloudflare)
 scraper = cloudscraper.create_scraper()
@@ -18,7 +22,7 @@ url = f"{API}/location/{LOCATION_HALAL}/periods"
 # Query parameters
 params = {
     "platform": os.getenv("PLATFORM"),
-    "date": os.getenv("DEFAULT_DATE"),
+    "date": today
 }
 
 # Headers

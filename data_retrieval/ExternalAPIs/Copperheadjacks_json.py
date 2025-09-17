@@ -2,10 +2,14 @@ import os
 import json
 import cloudscraper
 import pandas as pd
+from datetime import date
 from dotenv import load_dotenv
 
 load_dotenv()
 scraper = cloudscraper.create_scraper()
+
+# Get Date
+today = date.today().strftime("%Y-%m-%d")
 
 API = os.getenv("DINEONCAMPUS_API")
 LOCATION_COPPERHEAD = os.getenv("LOCATION_COPPERHEADJACKS")
@@ -13,7 +17,7 @@ url = f"{API}/location/{LOCATION_COPPERHEAD}/periods"
 
 params = {
     "platform": os.getenv("PLATFORM"),
-    "date": os.getenv("DEFAULT_DATE"),
+    "date": today
 }
 
 headers = {

@@ -2,12 +2,16 @@ import os
 import json
 import cloudscraper
 import pandas as pd
+from datetime import date
 from dotenv import load_dotenv
 
 # Load env
 load_dotenv()
 
 scraper = cloudscraper.create_scraper()
+
+# Get Date
+today = date.today().strftime("%Y-%m-%d")
 
 # Build URL
 API = os.getenv("DINEONCAMPUS_API")
@@ -17,7 +21,7 @@ url = f"{API}/location/{LOCATION_CHICKFILA}/periods"
 # Params
 params = {
     "platform": os.getenv("PLATFORM"),
-    "date": os.getenv("DEFAULT_DATE"),
+    "date": today
 }
 
 # Headers
