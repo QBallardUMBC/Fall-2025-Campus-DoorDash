@@ -1,3 +1,4 @@
+import os
 from supabase import create_client, Client
 
 url: str = os.getenv("SUPABASE_URL")

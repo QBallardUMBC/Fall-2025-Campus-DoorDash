@@ -2,13 +2,7 @@ import os
 import json
 import cloudscraper
 import pandas as pd
-from alllocations_json import get_restaurants
-from supabase import create_client, Client
 from dotenv import load_dotenv
-
-url: str = os.getenv("SUPABASE_URL")
-key: str = os.getenv("SUPABASE_KEY")
-supabase: Client = create_client(url, key)
 
 # Load environment variables from .env
 load_dotenv()
