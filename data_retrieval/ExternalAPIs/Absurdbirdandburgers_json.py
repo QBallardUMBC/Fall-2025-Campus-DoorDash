@@ -39,38 +39,65 @@ headers = {
 resp = scraper.get(url, params=params, headers=headers)
 
 # Pretty-print JSON
-print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
+#print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
 
 data = resp.json()["menu"]
-periods = data["periods"]
+_raw_periods = data.get("periods", [])
+periods = _raw_periods if isinstance(_raw_periods, list) else [_raw_periods]
 categories = periods["categories"]
-first = categories[0]
-items = first["items"]
-#print(data)
+#items = categories["items"]
 
-def food_items():
-    all_data = []
-
-    for menu in items:
-        item_data ={
-            "food_id": menu["id"],
-            "food_name": menu["name"],
-            "ingredients": menu["ingredients"]
+def get_period():
+    all_periods = []
+    for period in periods:
+        all_periods_dict = {
+            "period_id": period["id"],
+            "period_name": period["name"]
         }
-        all_data.append(item_data)
-    return pd.DataFrame(all_data)
+        all_periods.append(all_periods_dict)
+    return pd.DataFrame(all_periods)
 
-def nutrition_item():
-    all_data = []
+def get_food():
+    all_food = []
+    for period in periods:
+        for cate in period.get("categories", []):
+            for food in cate.get("items", []):
+                food_items = {
+                    "period_id": period["id"],
+                    "category_id": cate["id"],
+                    "food_id": food["id"],
+                    "food_name": food["name"]
+                }
+                all_food.append(food_items)
+    return pd.DataFrame(all_food)
 
-    for item in items:
-        for nutrion in item["nutrients"]:
-            nutrition_data = {
-                "food_id": item["id"],
-                "nutrition_name": nutrion["name"],
-                "nutrition_val": nutrion["value"]
-           }
-            all_data.append(nutrition_data)
-    return pd.DataFrame(all_data)
-print(food_items())
-print(nutrition_item())
+def get_cate():
+    all_cate = []
+    for period in periods:
+        for cate in period.get("categories", []):
+            categories_dict = {
+                "period_id": period["id"],
+                "category_id": cate["id"],
+                "category_name": cate["name"]
+            }
+            all_cate.append(categories_dict)
+    return pd.DataFrame(all_cate)
+
+def get_nutrients():
+    all_food = []
+    for period in periods:
+        for cate in period.get("categories", []):
+            for food in cate.get("items", []):
+                for nut in food.get("nutrients", []):
+                    food_items = {
+                        "food_id": food["id"],
+                        "nutrient_name": nut["name"],
+                        "nutrient_value": nut["value"]
+                    }
+                    all_food.append(food_items)
+    return pd.DataFrame(all_food)
+
+print(get_period())
+print(get_cate())
+print(get_food())
+print(get_nutrients())
