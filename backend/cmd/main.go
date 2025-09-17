@@ -13,6 +13,7 @@ func main() {
 	if err != nil {
 		log.Fatal("error loading env file")
 	}
+	auth.InitDb()
 	auth.SetupAuthClient()
 	router := gin.Default()
 	router.GET("/auth", auth.AuthHandler)

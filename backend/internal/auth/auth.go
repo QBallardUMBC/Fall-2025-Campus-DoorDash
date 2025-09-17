@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/supabase-community/gotrue-go/types"
 	"github.com/supabase-community/supabase-go"
@@ -21,7 +22,7 @@ type AuthRequest struct {
 
 func AuthHandler(c *gin.Context) {
 	log.Println("connecting to db")
-	initDb()
+	InitDb()
 	SetupAuthClient()
 }
 
@@ -54,6 +55,13 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
+	var err error
+	id := uuid.New()
+	log.Println(id)
+	_, err = conn.Exec(context.Background(), "INSERT INTO users (email,user_id) VALUES ($1,$2)", req.Email, id)
+	if err != nil {
+		log.Fatal("db insert failed", err)
+	}
 	signupReq := types.SignupRequest{
 		Email:    req.Email,
 		Password: req.Password,
@@ -85,7 +93,7 @@ func SetupAuthClient() {
 	log.Println("supabase client initialized")
 }
 
-func initDb() {
+func InitDb() {
 	connStr := os.Getenv("DB_STRING")
 
 	var err error
