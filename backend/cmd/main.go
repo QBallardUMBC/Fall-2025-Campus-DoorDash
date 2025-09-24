@@ -2,17 +2,21 @@ package main
 
 import (
 	"campusDoordash/internal/auth"
+	"log"
+	"net/http"
+	_ "net/http"
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"log"
-	_ "net/http"
-	"time"
 )
 
 func main() {
 	err := godotenv.Load()
 	if err != nil {
+
+		log.Println("hello? what is the error")
 		log.Fatal("error loading env file")
 	}
 	auth.InitDb()
@@ -22,6 +26,20 @@ func main() {
 	router.GET("/auth", auth.AuthHandler)
 	router.POST("/auth/register", auth.RegisterHandler)
 	router.POST("/auth/login", auth.LoginHandler)
+	router.POST("/auth/refresh", auth.RefreshTokenHandler)
+	router.GET("/test-protected", auth.AuthMiddleware(), func(c *gin.Context) {
+		user, _ := c.Get("user")
+		c.JSON(http.StatusOK, gin.H{
+			"message": "you are authenticated!",
+			"user":    user,
+		})
+	})
+
+	//protected api routes
+	//protected := router.Group("/api")
+	//protected.Use(auth.AuthMiddleware()){
+
+	//}
 	router.Run(":8080")
 }
 
