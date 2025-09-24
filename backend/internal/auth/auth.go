@@ -20,6 +20,76 @@ type AuthRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 }
 
+func RefreshTokenHandler(c *gin.Context) {
+	type RefreshRequest struct {
+		RefreshToken string `json:"refresh_token" binding:"required"`
+	}
+
+	//parse request body
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "refresh_token is required",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	tokenResp, err := supabaseClient.Auth.RefreshToken(req.RefreshToken)
+	if err != nil {
+		log.Printf("token refresh failed %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "invalid or expired refresh token",
+			"message": "please ;lofgin again",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Token refreshed successfully",
+		"access_token":  tokenResp.AccessToken,
+		"refresh_token": tokenResp.RefreshToken,
+		"expires_in":    tokenResp.ExpiresIn,
+		"token_type":    tokenResp.TokenType,
+	})
+}
+
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		//check if there is a header
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "no authorization header provided",
+			})
+
+			c.Abort()
+			return
+		}
+		//check if token is of bearer kind
+		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid authorization format. Use 'Beared <token>'",
+			})
+			c.Abort()
+			return
+		}
+		//verify token
+		token := authHeader[7:]
+		authedClient := supabaseClient.Auth.WithToken(token)
+		userResp, err := authedClient.GetUser()
+		if err != nil || userResp == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid or expired token",
+			})
+			c.Abort()
+			return
+		}
+		c.Set("user", userResp.User)
+		c.Set("user_id", userResp.ID)
+		c.Next()
+	}
+}
 func AuthHandler(c *gin.Context) {
 	log.Println("connecting to db")
 	InitDb()
@@ -41,9 +111,11 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":      "login good",
-		"user":         user,
-		"access token": user.AccessToken,
+		"message":       "login good",
+		"user":          user,
+		"access token":  user.AccessToken,
+		"refresh_token": user.RefreshToken,
+		"expires_in":    user.ExpiresIn,
 	})
 }
 
