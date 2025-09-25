@@ -56,3 +56,14 @@ insert_df("nutrients", get_all_nutrients(), batch_size=500)
 #insert_df("periods", , batch_size=500)
 
 locations_df = []
+
+"""
+
+This query was used and manipulated to update the tables ids accross the database
+
+UPDATE public.nutrients r
+SET    food_id = l.food_id
+FROM   public.food l
+WHERE  r.old_food_id = l.old_food_id
+  AND  r.food_id IS DISTINCT FROM l.food_id;
+"""
