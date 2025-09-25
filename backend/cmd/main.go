@@ -2,9 +2,11 @@ package main
 
 import (
 	"campusDoordash/internal/auth"
+	"campusDoordash/internal/payments"
 	"log"
 	"net/http"
 	_ "net/http"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -20,6 +22,8 @@ func main() {
 		log.Fatal("error loading env file")
 	}
 	auth.InitDb()
+	payments.InitKey()
+	log.Println("stripe api key", os.Getenv("STRIPE_API_KEY"))
 	auth.SetupAuthClient()
 	router := gin.Default()
 	enableCors(router)
@@ -36,10 +40,11 @@ func main() {
 	})
 
 	//protected api routes
-	//protected := router.Group("/api")
-	//protected.Use(auth.AuthMiddleware()){
-
-	//}
+	protected := router.Group("/api")
+	protected.Use(auth.AuthMiddleware())
+	{
+		protected.POST("/create-payment", payments.CreatePaymentHandler)
+	}
 	router.Run(":8080")
 }
 
