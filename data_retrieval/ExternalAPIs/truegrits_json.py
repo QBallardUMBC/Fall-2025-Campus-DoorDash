@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
+restaurant_id = "61f9d7c8a9f13a15d7c1a25e"
 # Create a scraper session (bypasses Cloudflare)
 scraper = cloudscraper.create_scraper()
 
@@ -42,25 +42,27 @@ resp = scraper.get(url, params=params, headers=headers)
 data = resp.json()["menu"]
 _raw_periods = data.get("periods", [])
 periods = _raw_periods if isinstance(_raw_periods, list) else [_raw_periods]
-categories = periods["categories"]
+#categories = periods["categories"]
 #items = categories["items"]
 
-def get_period():
+def grit_get_period():
     all_periods = []
     for period in periods:
         all_periods_dict = {
+            "restaurant_id": restaurant_id,
             "period_id": period["id"],
             "period_name": period["name"]
         }
         all_periods.append(all_periods_dict)
     return pd.DataFrame(all_periods)
 
-def get_food():
+def grit_get_food():
     all_food = []
     for period in periods:
         for cate in period.get("categories", []):
             for food in cate.get("items", []):
                 food_items = {
+                    "restaurant_id": restaurant_id,
                     "period_id": period["id"],
                     "category_id": cate["id"],
                     "food_id": food["id"],
@@ -69,11 +71,12 @@ def get_food():
                 all_food.append(food_items)
     return pd.DataFrame(all_food)
 
-def get_cate():
+def grit_get_cate():
     all_cate = []
     for period in periods:
         for cate in period.get("categories", []):
             categories_dict = {
+                "restaurant_id": restaurant_id,
                 "period_id": period["id"],
                 "category_id": cate["id"],
                 "category_name": cate["name"]
@@ -81,7 +84,7 @@ def get_cate():
             all_cate.append(categories_dict)
     return pd.DataFrame(all_cate)
 
-def get_nutrients():
+def grit_get_nutrients():
     all_food = []
     for period in periods:
         for cate in period.get("categories", []):
@@ -95,7 +98,7 @@ def get_nutrients():
                     all_food.append(food_items)
     return pd.DataFrame(all_food)
 
-print(get_period())
-print(get_cate())
-print(get_food())
-print(get_nutrients())
+#print(get_period())
+#print(get_cate())
+#print(get_food())
+#print(get_nutrients())

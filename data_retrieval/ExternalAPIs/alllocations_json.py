@@ -40,12 +40,13 @@ print(json.dumps(resp.json(), indent=2, ensure_ascii=False))
 data = resp.json()["buildings"]
 
 print(data)
-all_locations = []
+
 
 def get_locations():
+    all_locations = []
     for building in data:
         building_locations = {
-            "location_id": building["id"],
+            "old_location_id": building["id"],
             "location_name": building["name"],
             "location_type": building["type"],
         }
@@ -54,13 +55,14 @@ def get_locations():
     new_all_locations = pd.DataFrame(all_locations)
     return new_all_locations
 
-all_restaurants = []
+
 def get_restaurants():
+    all_restaurants = []
     for building in data:  # loop over buildings
         for restaurant in building["locations"]:  # loop over each restaurant inside building
             restaurants = {
-                "restaurant_id": restaurant["id"],
-                "location_id": restaurant["building_id"],
+                "old_restaurant_id": restaurant["id"],
+                "old_location_id": restaurant["building_id"],
                 "restaurant_name": restaurant["name"]
             }
             all_restaurants.append(restaurants)
@@ -155,7 +157,8 @@ def get_manual_location_data():
         {"location_id": 64, "location_name": "900 Walker", "location_type": "building"},
         #{"location_id": 65, "location_name": "True Grit’s", "location_type": "dining"},
     ]
-    return pd.DataFrame(manual_lo_data)
+    manual_df = pd.DataFrame(manual_lo_data).drop(columns="location_id")
+    return manual_df
 
 print(get_manual_location_data())
 print(get_restaurants())
