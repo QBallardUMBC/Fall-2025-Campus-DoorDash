@@ -51,7 +51,7 @@ func (s* RestaurantService) GetAllRestaurants(ctx context.Context) ([]Restaurant
 		var r Restaurant
 		//insert into r
 		//get all those values from row and put into r
-		err := rows.Scan(&r.RestaurantId, &r.RestaurantName, &r.LocationID)
+		err := rows.Scan(&r.RestaurantID, &r.RestaurantName, &r.LocationID)
 		if err != nil{
 			return nil, err
 		}
@@ -70,7 +70,7 @@ func (s *RestaurantService) GetRestaurantsByID(ctx context.Context, restaurantID
 	`
 	var r Restaurant
 	err := s.conn.QueryRow(ctx, query, restaurantID).Scan(
-		&r.RestaurantId, &r.RestaurantName, &r.LocationID,	
+		&r.RestaurantID, &r.RestaurantName, &r.LocationID,	
 	)
 
 	if err != nil{
