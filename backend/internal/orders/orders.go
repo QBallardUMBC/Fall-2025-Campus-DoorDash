@@ -163,3 +163,31 @@ func (s * OrderService) ValidateAndCreateOrder(ctx context.Context, customerID u
 
 	return order, nil
 }
+
+func (s * OrderService) GetOrderByID(ctx context.Context, orderID uuid.UUID)(*Order, error){
+	var order Order
+	query := 
+		`	
+		SELECT id, customer_id, restaurant_id, dasher_id, order_items, subtotal,
+		delivery_fee, dasher_fee, total, status, delivery_address, delivery_instructions, payment_intent_id, created_at, updated_at 
+		FROM orders WHERE id = $1
+	
+	`
+
+	//execute query to get from specific row for an order 
+	//after that you put the stuff in the order struct
+	err := s.conn.QueryRow(ctx, query, orderID).Scan(
+		&order.ID, &order.CreatedAt, &order.CustomerID, &order.RestaurantID, 
+		&order.DasherID, &order.Items, &order.Subtotal, &order.DeliveryFee, 
+		&order.DasherFee, &order.Total, &order.Status, &order.DeliveryAddress, 
+		&order.DeliveryInstructions, &order.PaymentIntentID, &order.UpdatedAt,
+	)
+
+	if err != nil{
+		return nil, err
+	}	
+	
+	return &order, nil
+}
+
+
