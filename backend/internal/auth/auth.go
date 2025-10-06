@@ -1,18 +1,21 @@
+// Package auth package for authentication
 package auth
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/supabase-community/gotrue-go/types"
-	"github.com/supabase-community/supabase-go"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+_	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/supabase-community/gotrue-go/types"
+	"github.com/supabase-community/supabase-go"
 )
 
-var conn *pgx.Conn
+var Conn * pgxpool.Pool
 var supabaseClient *supabase.Client
 
 type AuthRequest struct {
@@ -91,8 +94,8 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 func AuthHandler(c *gin.Context) {
-	log.Println("connecting to db")
-	InitDb()
+	log.Println("Connecting to db")
+	InitDB()
 	SetupAuthClient()
 }
 
@@ -130,7 +133,7 @@ func RegisterHandler(c *gin.Context) {
 	var err error
 	id := uuid.New()
 	log.Println(id)
-	_, err = conn.Exec(context.Background(), "INSERT INTO users (email,user_id) VALUES ($1,$2)", req.Email, id)
+	_, err = Conn.Exec(context.Background(), "INSERT INTO users (email,user_id) VALUES ($1,$2)", req.Email, id)
 	if err != nil {
 		log.Fatal("db insert failed", err)
 	}
@@ -160,24 +163,24 @@ func SetupAuthClient() {
 	)
 
 	if err != nil {
-		log.Fatal("failed to connect to supabase client", err)
+		log.Fatal("failed to Connect to supabase client", err)
 	}
 	log.Println("supabase client initialized")
 }
 
-func InitDb() {
-	connStr := os.Getenv("DB_STRING")
+func InitDB() {
+	ConnStr := os.Getenv("DB_STRING")
 
 	var err error
-	conn, err = pgx.Connect(context.Background(), connStr)
+	Conn, err = pgxpool.New(context.Background(), ConnStr)
 	if err != nil {
-		log.Fatal("failed to connect to database", err)
+		log.Fatal("failed to Connect to database", err)
 	}
 
 	var version string
-	if err := conn.QueryRow(context.Background(), "SELECT version()").Scan(&version); err != nil {
+	if err := Conn.QueryRow(context.Background(), "SELECT version()").Scan(&version); err != nil {
 		log.Fatal("Query failed:", err)
 	}
 
-	log.Println("connected to database!")
+	log.Println("Connected to database!")
 }

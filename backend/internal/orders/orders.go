@@ -190,4 +190,39 @@ func (s * OrderService) GetOrderByID(ctx context.Context, orderID uuid.UUID)(*Or
 	return &order, nil
 }
 
+func (s * OrderService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string)error{
+	validStatuses := map[string]bool{
+		"pending":		true, 
+		"confirmed": 	true, 
+		"preparing": 	true,
+		"ready": 		true, 
+		"picked_up":    true, 
+		"delivered": 	true, 
+		"cancelled": 	true,
+	}
 
+	if !validStatuses[newStatus]{
+		return fmt.Errorf("invalid status %s", newStatus)
+	}
+
+	query := `
+		UPDATE orders 
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2 
+	`
+	result, err := s.conn.Exec(ctx, query, newStatus, orderID)
+	if err != nil{
+		return err
+	}
+		
+	rowsAffected := result.RowsAffected() 
+	if rowsAffected == 0{
+		return fmt.Errorf("order not found")
+	}
+
+	return nil
+}
+
+func (s *OrderService) GetCustomerOrders(ctx context.Context, CustomerID uuid.UUID) ([]Order, error){
+
+}
