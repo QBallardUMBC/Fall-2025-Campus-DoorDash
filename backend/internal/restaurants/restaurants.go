@@ -1,10 +1,12 @@
-//Package restaurants implements restaurant crud functionality for campus doordash application
+// Package restaurants implements restaurant crud functionality for campus doordash application
 package restaurants
 
 import (
 	"context"
+
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	_"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Restaurant struct {
@@ -23,10 +25,10 @@ type FoodItem struct{
 }
 
 type RestaurantService struct{
-	conn *pgx.Conn
+	conn *pgxpool.Pool
 }
 
-func NewRestaurantService(conn * pgx.Conn) *RestaurantService{ 
+func NewRestaurantService(conn * pgxpool.Pool) *RestaurantService{ 
 	return &RestaurantService{conn: conn}	
 }
 

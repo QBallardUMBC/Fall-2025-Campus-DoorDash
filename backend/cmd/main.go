@@ -3,6 +3,7 @@ package main
 import (
 	"campusDoordash/internal/auth"
 	"campusDoordash/internal/payments"
+	"campusDoordash/internal/restaurants"
 	"log"
 	"net/http"
 	_ "net/http"
@@ -21,10 +22,13 @@ func main() {
 		log.Println("hello? what is the error")
 		log.Fatal("error loading env file")
 	}
-	auth.InitDb()
+	auth.InitDB()
 	payments.InitKey()
 	log.Println("stripe api key", os.Getenv("STRIPE_API_KEY"))
 	auth.SetupAuthClient()
+	restaurantService := restaurants.NewRestaurantService(auth.Conn)
+	restaurantHandlers := restaurants.NewRestaurantHandler(restaurantService)
+
 	router := gin.Default()
 	enableCors(router)
 	router.GET("/auth", auth.AuthHandler)
@@ -44,6 +48,11 @@ func main() {
 	protected.Use(auth.AuthMiddleware())
 	{
 		protected.POST("/create-payment", payments.CreatePaymentHandler)
+		protected.GET("/restaurants", restaurantHandlers.GetAllRestaurantHandlers)
+		
+		protected.GET("/restaurants/:id", restaurantHandlers.GetRestaurantByID)
+
+		protected.GET("/restaurants/:id/menu", restaurantHandlers.GetRestaurantMenuHandler)
 	}
 	router.Run(":8080")
 }
