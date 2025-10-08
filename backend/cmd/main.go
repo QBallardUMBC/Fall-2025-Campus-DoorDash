@@ -6,7 +6,6 @@ import (
 	"campusDoordash/internal/restaurants"
 	"log"
 	"net/http"
-	_ "net/http"
 	"os"
 	"time"
 
