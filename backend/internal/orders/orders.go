@@ -224,5 +224,5 @@ func (s * OrderService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID
 }
 
 func (s *OrderService) GetCustomerOrders(ctx context.Context, CustomerID uuid.UUID) ([]Order, error){
-
+	return nil, nil
 }

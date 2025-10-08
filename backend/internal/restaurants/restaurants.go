@@ -117,7 +117,7 @@ func (s * RestaurantService) GetRestaurantMenu (ctx context.Context, restaurantI
 	return foodItems, nil
 }
 
-func (s * RestaurantService) GetFoodItemByID(ctx context.Context, foodId uuid.UUID) (*FoodItem, error){
+func (s * RestaurantService) GetFoodItemByID(ctx context.Context, foodID uuid.UUID) (*FoodItem, error){
 	var item FoodItem
 	query := `
 	SELECT food_id, restaurant_id, category_id, food_name, price, availability
@@ -125,7 +125,7 @@ func (s * RestaurantService) GetFoodItemByID(ctx context.Context, foodId uuid.UU
 	WHERE food_id = $1
 	`
 	//queryrow queries only one row query queries the whole table
-	err := s.conn.QueryRow(ctx, query, foodId,).Scan( 
+	err := s.conn.QueryRow(ctx, query, foodID,).Scan( 
 		&item.FoodID, &item.RestaurantID, &item.CategoryID, 
 		&item.FoodName, &item.Price, &item.Availability, 
 	)
@@ -137,3 +137,32 @@ func (s * RestaurantService) GetFoodItemByID(ctx context.Context, foodId uuid.UU
 	return &item, err
 }
 
+
+func (s * RestaurantService) GetFoodItemBYIDs(ctx context.Context, foodIDs[] uuid.UUID)([]FoodItem, error){
+	query := `
+		SELECT food_id, restaurant_id, category_id, food_name, price, availability 
+		FROM food 
+		WHERE food_id = ANY($1)
+	`	
+	rows, err := s.conn.Query(ctx, query, foodIDs)
+	
+	if err != nil{
+		return nil, err
+	}
+	
+	defer rows.Close()
+	var items []FoodItem
+	for rows.Next(){
+		var item FoodItem
+		//insert db items into variable
+		err := rows.Scan(&item.FoodID, &item.RestaurantID,&item.CategoryID,
+						&item.FoodName, &item.Price, &item.Availability)
+		
+		if err != nil{
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	return items, nil
+}
