@@ -231,7 +231,60 @@ func (s * OrderService) GetOrdersByCustomerID(ctx context.Context, customerID uu
 
 	return orders, nil
 }
+func (s * OrderService) GetOrderByRestaurantID(ctx context.Context, restaurantID uuid.UUID)([]Order, error){
+	query := `
+		SELECT id, created_at, customer_id, restaurant_id, dasher_id, 
+			order_items, subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions, payment_intent_id,
+			updated_at, confirmed_at, ready_at, picked_at, delivered_at
+		FROM orders 
+		WHERE restaurant_id = $1
+		ORDER BY created_at DESC
+	`
 
+	rows, err := s.conn.Query(ctx, query, restaurantID)
+
+	if err != nil {
+		return nil, err
+	}
+	
+	var orders []Order
+
+	for rows.Next(){
+		var order Order
+		err := rows.Scan(
+			&order.ID,
+			&order.CreatedAt,
+			&order.CustomerID,
+			&order.RestaurantID,
+			&order.DasherID,
+			&order.OrderItems,
+			&order.Subtotal,
+			&order.DeliveryFee,
+			&order.DasherFee,
+			&order.Total,
+			&order.Status,
+			&order.DeliveryAddress,
+			&order.DeliveryInstructions,
+			&order.PaymentIntentID,
+			&order.UpdatedAt,
+			&order.ConfirmedAt,
+			&order.ReadyAt,
+			&order.PickedUpAt,
+			&order.DeliveredAt,
+		)
+
+		if err != nil{
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+		
+	if err := rows.Err(); err != nil{
+		return nil, err
+	}
+	return orders , nil
+}
 func calculateSubtotal(items [] OrderItem) float64{
 	var subtotal float64
 
