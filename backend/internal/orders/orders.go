@@ -323,9 +323,15 @@ func (s * OrderService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID
 	return err
 }
 
-func (s * OrderService) AssignDasher(ctx context.Context, orderID uuid.UUID, dasherID uuid.UUID) error{
-	
-	return nil
+func (s * OrderService) AssignDasher(ctx context.Context, orderID uuid.UUID, dasherID uuid.UUID) error{	
+	query := `
+		UPDATE orders 
+		SET dasher_id = $1, updated_at = $2 
+		WHERE id = $3 
+	`
+
+	_, err := s.conn.Exec(ctx, query, dasherID, time.Now(), orderID)
+	return err
 }
 
 func calculateSubtotal(items [] OrderItem) float64{
