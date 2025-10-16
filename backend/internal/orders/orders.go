@@ -1,228 +1,243 @@
+//Package orders is meant for order creation and management system
 package orders
 
 import(
 	"context"
-	"encoding/json"
-	"fmt"
 	"time"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"campusDoordash/internal/restaurants"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
-//Order represents a customer order
-type Order struct{
-	ID 						uuid.UUID 		`json:"id" db:"id"`
-	CreatedAt 				time.Time 		`json:"created_at" db:"created_at"`
-	CustomerID 				uuid.UUID 		`json:"customer_id" db:"customer_id"`
-	RestaurantID			uuid.UUID 		`json:"restaurant_id" db:"restaurant_id"`
-	DasherID				uuid.UUID 		`json:"dasher_id" db:"dasher_id"`
-	Items					json.RawMessage `json:"items" db:"order_items"`
-	Subtotal				float64	 		`json:"subtotal" db:"subtotal"`
-	DeliveryFee 			float64         `json:"delivery_fee" db:"delivery_fee"`
-	DasherFee				float64         `json:"dasher_fee" db:"dasher_fee"`
-	Total           		float64     	`json:"total" db:"total"`
-	Status          		string          `json:"status" db:"status"`
-	DeliveryAddress  		string         	`json:"delivery_address" db:"delivery_address"`
-	DeliveryInstructions 	string     		`json:"delivery_instructions,omitempty" db:"delivery_instructions"`
-	PaymentIntentID      	string          `json:"payment_intent_id,omitempty" db:"payment_intent_id"`
-	UpdatedAt            	time.Time       `json:"updated_at" db:"updated_at"`
-}
-//OrderItem item in an order
+
+type OrderStatus string
+
+const(
+
+	StatusPending 					OrderStatus = "pending" 
+	StatusConfirmed					OrderStatus = "confirmed" 
+	StatusPreparing 				OrderStatus = "preparing" 
+	StatusReady						OrderStatus = "ready" 
+	StatusPickedUp					OrderStatus = "picked_up"
+	StatusDelivered 				OrderStatus = "delivered" 
+	StatusCancelled 				OrderStatus = "cancelled"
+
+)
+
 type OrderItem struct{
-	FoodID 		string 		`json:"food_id"`
-	Name		string		`json:"name"`
-	Price		float64		`json:"price"`
-	Quantity	int 		`json:"quantity"`
+	FoodID 		uuid.UUID 		`json:"food_id"`
+	Quantity 	int				`json:"quantity"`
+	Price 		float64			`json:"price"`
+	FoodName 	string			`json:"food_name,omitempty"`
 }
-//CreateOrderRequest request payload for creating an order
+
+type Order struct{
+	ID						uuid.UUID 					`json:"id" db:"id"`
+	CreatedAt 				time.Time 					`json:"created_at" db:"created_at"`
+	CustomerID           	uuid.UUID    				`json:"customer_id" db:"customer_id"`
+	RestaurantID         	uuid.UUID    				`json:"restaurant_id" db:"restaurant_id"`
+	DasherID             	*uuid.UUID   				`json:"dasher_id,omitempty" db:"dasher_id"`
+	OrderItems 				[]OrderItem 				`json:"order_items" db:"order_items"`	
+	Subtotal             	float64      				`json:"subtotal" db:"subtotal"`
+	DeliveryFee          	float64      				`json:"delivery_fee" db:"delivery_fee"`
+	DasherFee            	float64      				`json:"dasher_fee" db:"dasher_fee"`
+	Total                	float64      				`json:"total" db:"total"`
+	Status					OrderStatus  				`json:"status" db:"status"`
+	DeliveryAddress 		string						`json:"delivery_address" db:"delivery_address"`
+	DeliveryInstructions	*string 					`json:"delivery_instructions,omitempty" db:"delivery_instructions"`
+	PaymentIntentID      	*string      				`json:"payment_intent_id,omitempty" db:"payment_intent_id"`
+	UpdatedAt            	time.Time    				`json:"updated_at" db:"updated_at"`
+	ConfirmedAt          	*time.Time   				`json:"confirmed_at,omitempty" db:"confirmed_at"`
+	ReadyAt              	*time.Time   				`json:"ready_at,omitempty" db:"ready_at"`
+	PickedUpAt           	*time.Time   				`json:"picked_up_at,omitempty" db:"picked_at"`
+	DeliveredAt          	*time.Time   				`json:"delivered_at,omitempty" db:"delivered_at"`
+}
+
 type CreateOrderRequest struct{
-	RestaurantID			string			`json:"restaurant_id" binding:"required"`
-	Items					[]OrderItem 	`json:"items" binding:"required,min=1"`
+	CustomerID 				uuid.UUID 		`json:"customer_id" binding:"required"`
+	RestaurantID 			uuid.UUID 		`json:"restaurant_id" binding:"required"`
+	OrderItems				[]OrderItem 	`json:"order_items" binding:"required"`
 	DeliveryAddress 		string 			`json:"delivery_address" binding:"required"`
-	DeliveryInstructions	string 			`json:"delivery_instructions"`
-}
-//UpdateStatusRequest request
-type UpdateStatusRequest struct{
-	Status string `json:"status" binding:"required"`
+	DeliveryInstructions 	*string			`json:"delivery_instructions,omitempty"`	
 }
 
 type OrderService struct{
-	conn				*pgx.Conn
-	restarantService	*restaurants.RestaurantService 
+	conn * pgxpool.Pool
 }
 
-func NewOrderService(conn * pgx.Conn, restaurantService * restaurants.RestaurantService)(*OrderService){
-	return &OrderService{
-		conn: conn, 
-		restarantService:  restaurantService,
-	}
+func NewOrderService(conn *pgxpool.Pool) *OrderService{
+	return &OrderService{conn}	
 }
 
-func (s * OrderService) CalculateOrderTotals(subtotal float64) (deliveryFee, dasherFee, total float64){
-	deliveryFee = subtotal * 0.05 // 5 percent delivery fee 
-	dasherFee = 3.00
-	total = subtotal + deliveryFee + dasherFee
-	return
-}
-
-func (s * OrderService) ValidateAndCreateOrder(ctx context.Context, customerID uuid.UUID, req CreateOrderRequest)(*Order, error){	
-	restaurantID, err := uuid.Parse(req.RestaurantID)
-
-	if err != nil{
-		return nil, fmt.Errorf("invalid restaurant ID format")	
-	}
-	
-	_,err = s.restarantService.GetRestaurantsByID(ctx, restaurantID)
-	if err != nil{
-		return nil, fmt.Errorf("restaurant not found")
-	}
-
-	//validate items and calculate subtotal from database prices
-	var subtotal float64 
-	var validatedItems []OrderItem
-	for _, item := range req.Items{
-		
-		//return nil if there are no items being ordered
-		if item.Quantity <= 0{
-			return nil, fmt.Errorf("invalid quantity for item")
-		}
-		
-		foodID, err := uuid.Parse(item.FoodID)
-		
-		if err != nil{
-			return nil, fmt.Errorf("invalid food item ID format")
-		}
-		
-		foodItem, err := s.restarantService.GetFoodItemByID(ctx, foodID)	
-		if err != nil{
-			return nil, fmt.Errorf("food item not found %s", item.FoodID)
-		}
-			
-		//check if item belongs to specified restaurant
-		if foodItem.RestaurantID == nil || *foodItem.RestaurantID != restaurantID{
-			return nil, fmt.Errorf("food item does not belong to specified restaurant")
-		}
-		
-		if !foodItem.Availability{
-			return nil, fmt.Errorf("item %s is currently unavailable", foodItem.FoodName)
-		}
-		
-		validatedItem := OrderItem{
-			FoodID: item.FoodID,
-			Name: foodItem.FoodName,
-			Price: foodItem.Price,
-			Quantity: item.Quantity,
-		}
-
-		validatedItems = append(validatedItems, validatedItem)
-		subtotal += foodItem.Price * float64(item.Quantity)
-	}
-	
-	deliveryFee, dasherFee, total := s.CalculateOrderTotals(subtotal)
-	
-	itemsJSON, err := json.Marshal(validatedItems) 
-
-	if err != nil{
-		return nil, fmt.Errorf("failed to marshal items %w", err)
-	}
-	
-	order := &Order{
-		ID: 					uuid.New(), 
-		CustomerID: 			customerID,
-		RestaurantID: 			restaurantID,
-		Items: 					itemsJSON,
-		Subtotal: 				subtotal,
-		DeliveryFee: 			deliveryFee,
-		DasherFee:				dasherFee,
-		Total: 					total,
-		Status: 				"pending",
-		DeliveryAddress: 		req.DeliveryAddress,
-		DeliveryInstructions: 	req.DeliveryInstructions,
-		CreatedAt: 				time.Now(),
-		UpdatedAt: 				time.Now(),
-	}
+func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)(*Order, error){
+	subtotal := calculateSubtotal(req.OrderItems)
+	deliveryFee := 3.99
+	dasherFee := 2.00
+	total :=  subtotal + deliveryFee + dasherFee
 
 	query := `
-		INSERT INTO orders (
-			id, customer_id, restaurant_id, items, subtotal, 
-			delivery_fee, dasher_fee, total, status,
-			delivery_address, delivery_instructions, created_at, updated_at
-		)VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		INSERT INTO orders(
+			id, customer_id, restaurant_id, order_items, 
+			subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions, 
+			created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+		) 
+
+		RETURNING id, created_at, customer_id, restaurant_id, dasher_id,
+			order_items, subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions, 
+			payment_intent_id, updated_at, confirmed_at, ready_at, 
+			picked_at, delivered_at
 	`
 
-	_, err = s.conn.Exec(ctx, query, 
-		order.ID, order.CustomerID, order.RestaurantID, order.Items, 
-		order.Subtotal, order.DeliveryFee, order.DasherFee, order.Total, 
-		order.Status, order.DeliveryAddress, order.DeliveryInstructions, 
-		order.CreatedAt, order.UpdatedAt,
-	)
-
-	if err != nil{
-		return nil, fmt.Errorf("failed to create order: %w", err)	
-	}
-
-	return order, nil
-}
-
-func (s * OrderService) GetOrderByID(ctx context.Context, orderID uuid.UUID)(*Order, error){
-	var order Order
-	query := 
-		`	
-		SELECT id, customer_id, restaurant_id, dasher_id, order_items, subtotal,
-		delivery_fee, dasher_fee, total, status, delivery_address, delivery_instructions, payment_intent_id, created_at, updated_at 
-		FROM orders WHERE id = $1
+	orderID := uuid.New()
+	now := time.Now()
 	
-	`
-
-	//execute query to get from specific row for an order 
-	//after that you put the stuff in the order struct
-	err := s.conn.QueryRow(ctx, query, orderID).Scan(
-		&order.ID, &order.CreatedAt, &order.CustomerID, &order.RestaurantID, 
-		&order.DasherID, &order.Items, &order.Subtotal, &order.DeliveryFee, 
-		&order.DasherFee, &order.Total, &order.Status, &order.DeliveryAddress, 
-		&order.DeliveryInstructions, &order.PaymentIntentID, &order.UpdatedAt,
+	var order Order 
+	err := s.conn.QueryRow(ctx, query,
+		orderID, 
+		req.CustomerID, 
+		req.RestaurantID, 
+		req.OrderItems, 
+		subtotal, 
+		deliveryFee, 
+		dasherFee, 
+		total, 
+		StatusPending, 
+		req.DeliveryAddress, 
+		req.DeliveryInstructions, 
+		now, 
+		now, 
+	).Scan(
+		&order.ID, 
+		&order.CreatedAt, 
+		&order.CustomerID, 
+		&order.RestaurantID,
+		&order.DasherID,
+		&order.OrderItems,
+		&order.Subtotal,
+		&order.DeliveryFee,
+		&order.DasherFee,
+		&order.Total,
+		&order.Status,
+		&order.DeliveryAddress,
+		&order.DeliveryInstructions,
+		&order.PaymentIntentID,
+		&order.UpdatedAt,
+		&order.ConfirmedAt,
+		&order.ReadyAt,
+		&order.PickedUpAt,
+		&order.DeliveredAt,	
 	)
 
 	if err != nil{
 		return nil, err
-	}	
+	}
 	
 	return &order, nil
 }
 
-func (s * OrderService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, newStatus string)error{
-	validStatuses := map[string]bool{
-		"pending":		true, 
-		"confirmed": 	true, 
-		"preparing": 	true,
-		"ready": 		true, 
-		"picked_up":    true, 
-		"delivered": 	true, 
-		"cancelled": 	true,
-	}
-
-	if !validStatuses[newStatus]{
-		return fmt.Errorf("invalid status %s", newStatus)
-	}
-
+func (s * OrderService) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*Order, error){
 	query := `
-		UPDATE orders 
-		SET status = $1, updated_at = NOW()
-		WHERE id = $2 
+		SELECT id, created_at, customer_id, restaurant_id, dasher_id,
+			order_items, subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions,
+			payment_intent_id, updated_at, confirmed_at, ready_at, 
+			picked_at, delivered_at
+		FROM orders 
+		WHERE id = $1
 	`
-	result, err := s.conn.Exec(ctx, query, newStatus, orderID)
+	var order Order
+	err := s.conn.QueryRow(ctx, query, orderID).Scan(
+		&order.ID,
+		&order.CreatedAt,
+		&order.CustomerID,
+		&order.RestaurantID,
+		&order.DasherID,
+		&order.OrderItems,
+		&order.Subtotal,
+		&order.DeliveryFee,
+		&order.DasherFee,
+		&order.Total,
+		&order.Status,
+		&order.DeliveryAddress,
+		&order.DeliveryInstructions,
+		&order.PaymentIntentID,
+		&order.UpdatedAt,
+		&order.ConfirmedAt,
+		&order.ReadyAt,
+		&order.PickedUpAt,
+		&order.DeliveredAt,		
+	)
+
 	if err != nil{
-		return err
-	}
-		
-	rowsAffected := result.RowsAffected() 
-	if rowsAffected == 0{
-		return fmt.Errorf("order not found")
+		return nil , err
 	}
 
-	return nil
+	return &order, nil
 }
 
-func (s *OrderService) GetCustomerOrders(ctx context.Context, CustomerID uuid.UUID) ([]Order, error){
-	return nil, nil
+func (s * OrderService) GetOrdersByCustomerID(ctx context.Context, customerID uuid.UUID)([]Order, error){
+	query := `
+		SELECT id, created_at, customer_id, restaurant_id, dasher_id, 
+			order_items, subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions, 
+			payment_intent_id, updated_at, confirmed_at, ready_at,
+			picked_at, delivered_at 
+		FROM orders 
+		WHERE customer_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := s.conn.Query(ctx, query, customerID)
+	if err != nil{
+		return nil, err	
+	}
+	defer rows.Close()
+
+	var orders []Order
+	for rows.Next(){
+		var order Order
+		err := rows.Scan(
+			&order.ID,
+			&order.CreatedAt,
+			&order.CustomerID,
+			&order.RestaurantID,
+			&order.DasherID,
+			&order.OrderItems,
+			&order.Subtotal,
+			&order.DeliveryFee,
+			&order.DasherFee,
+			&order.Total,
+			&order.Status,
+			&order.DeliveryAddress,
+			&order.DeliveryInstructions,
+			&order.PaymentIntentID,
+			&order.UpdatedAt,
+			&order.ConfirmedAt,
+			&order.ReadyAt,
+			&order.PickedUpAt,
+			&order.DeliveredAt,
+		)
+
+		if err != nil{
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+
+	if err := rows.Err(); err != nil{
+		return nil, err	
+	}
+
+	return orders, nil
+}
+
+func calculateSubtotal(items [] OrderItem) float64{
+	var subtotal float64
+
+	for _,item := range items{
+		subtotal += item.Price * float64(item.Quantity)
+	}
+
+	return subtotal
 }
