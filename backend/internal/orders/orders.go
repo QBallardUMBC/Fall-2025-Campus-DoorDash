@@ -1,9 +1,11 @@
-//Package orders is meant for order creation and management system
+// Package orders is meant for order creation and management system
 package orders
 
-import(
+import (
 	"context"
+	"fmt"
 	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -285,6 +287,47 @@ func (s * OrderService) GetOrderByRestaurantID(ctx context.Context, restaurantID
 	}
 	return orders , nil
 }
+
+func (s * OrderService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status OrderStatus) error{
+	now := time.Now()
+	
+ 	timestampColumn := map[OrderStatus]string{
+		StatusConfirmed: "confirmed_at",
+		StatusReady: "ready_at", 
+		StatusPickedUp: "picked_at",
+		StatusDelivered: "delivered_at",
+	}	
+	
+	if col, ok := timestampColumn[status]; ok{
+		query := fmt.Sprintf(`	
+			UPDATE orders 
+			SET status = $1, %s = $2, updated_at = $3
+			WHERE id = $4 
+		`, col)	
+
+		_, err := s.conn.Exec(ctx, query, status, now, now, orderID)
+
+		if err != nil{
+			return err
+		}
+	}
+
+	query := `
+		UPDATE orders 
+		SET status = $1, updated_at = $2
+		WHERE id = $3
+	`
+	_,err := s.conn.Exec(ctx, query, status, now, orderID)
+
+	
+	return err
+}
+
+func (s * OrderService) AssignDasher(ctx context.Context, orderID uuid.UUID, dasherID uuid.UUID) error{
+	
+	return nil
+}
+
 func calculateSubtotal(items [] OrderItem) float64{
 	var subtotal float64
 
