@@ -1,9 +1,11 @@
-//Package orders is meant for order creation and management system
+// Package orders is meant for order creation and management system
 package orders
 
-import(
+import (
 	"context"
+	"fmt"
 	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -230,6 +232,100 @@ func (s * OrderService) GetOrdersByCustomerID(ctx context.Context, customerID uu
 	}
 
 	return orders, nil
+}
+func (s * OrderService) GetOrderByRestaurantID(ctx context.Context, restaurantID uuid.UUID)([]Order, error){
+	query := `
+		SELECT id, created_at, customer_id, restaurant_id, dasher_id, 
+			order_items, subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions, payment_intent_id,
+			updated_at, confirmed_at, ready_at, picked_at, delivered_at
+		FROM orders 
+		WHERE restaurant_id = $1
+		ORDER BY created_at DESC
+	`
+
+	rows, err := s.conn.Query(ctx, query, restaurantID)
+
+	if err != nil {
+		return nil, err
+	}
+	
+	var orders []Order
+
+	for rows.Next(){
+		var order Order
+		err := rows.Scan(
+			&order.ID,
+			&order.CreatedAt,
+			&order.CustomerID,
+			&order.RestaurantID,
+			&order.DasherID,
+			&order.OrderItems,
+			&order.Subtotal,
+			&order.DeliveryFee,
+			&order.DasherFee,
+			&order.Total,
+			&order.Status,
+			&order.DeliveryAddress,
+			&order.DeliveryInstructions,
+			&order.PaymentIntentID,
+			&order.UpdatedAt,
+			&order.ConfirmedAt,
+			&order.ReadyAt,
+			&order.PickedUpAt,
+			&order.DeliveredAt,
+		)
+
+		if err != nil{
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+		
+	if err := rows.Err(); err != nil{
+		return nil, err
+	}
+	return orders , nil
+}
+
+func (s * OrderService) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status OrderStatus) error{
+	now := time.Now()
+	
+ 	timestampColumn := map[OrderStatus]string{
+		StatusConfirmed: "confirmed_at",
+		StatusReady: "ready_at", 
+		StatusPickedUp: "picked_at",
+		StatusDelivered: "delivered_at",
+	}	
+	
+	if col, ok := timestampColumn[status]; ok{
+		query := fmt.Sprintf(`	
+			UPDATE orders 
+			SET status = $1, %s = $2, updated_at = $3
+			WHERE id = $4 
+		`, col)	
+
+		_, err := s.conn.Exec(ctx, query, status, now, now, orderID)
+
+		if err != nil{
+			return err
+		}
+	}
+
+	query := `
+		UPDATE orders 
+		SET status = $1, updated_at = $2
+		WHERE id = $3
+	`
+	_,err := s.conn.Exec(ctx, query, status, now, orderID)
+
+	
+	return err
+}
+
+func (s * OrderService) AssignDasher(ctx context.Context, orderID uuid.UUID, dasherID uuid.UUID) error{
+	
+	return nil
 }
 
 func calculateSubtotal(items [] OrderItem) float64{
