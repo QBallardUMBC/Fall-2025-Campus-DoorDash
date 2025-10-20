@@ -1,4 +1,4 @@
-// frontend/SignupScreen.js
+// frontend/screens/SignupScreen.js
 import React, { useState } from "react";
 import {
   View,
@@ -8,7 +8,10 @@ import {
   StyleSheet,
   Image,
   ScrollView,
+  Alert,
 } from "react-native";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function SignupScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -16,10 +19,52 @@ export default function SignupScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("student");
 
-  const handleSignup = () => {
-    console.log("Email:", email);
-    console.log("Password:", password);
-    console.log("Role:", role);
+  // ⚙️ Replace this with your IP (from `ipconfig getifaddr en0`)
+  const API_BASE = "http://10.200.70.88:8080";
+
+  const handleSignup = async () => {
+    console.log("Signup button pressed ✅");
+
+    if (!email || !password || !confirmPassword) {
+      Alert.alert("Missing Fields", "Please fill in all required fields.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Password Mismatch", "Passwords do not match.");
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${API_BASE}/auth/register`, {
+        email,
+        password,
+        role, // optional if backend supports it
+      });
+
+      console.log("Signup Response:", response.data);
+
+      const accessToken = response.data["access_token"];
+      const refreshToken = response.data["refresh_token"];
+
+      if (accessToken && refreshToken) {
+        await AsyncStorage.setItem("access_token", accessToken);
+        await AsyncStorage.setItem("refresh_token", refreshToken);
+      }
+
+      Alert.alert("Signup Successful", "Account created successfully!", [
+        {
+          text: "OK",
+          onPress: () => navigation.replace("Login"),
+        },
+      ]);
+    } catch (error) {
+      console.error("Signup error:", error);
+      Alert.alert(
+        "Signup Failed",
+        error.response?.data?.error || "Server error. Please try again."
+      );
+    }
   };
 
   return (
@@ -36,7 +81,7 @@ export default function SignupScreen({ navigation }) {
       <Text style={styles.title}>Create Account</Text>
       <Text style={styles.subtitle}>Join Campus DoorDash - UMBC</Text>
 
-      {/* Input fields */}
+      {/* Input Fields */}
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -44,6 +89,7 @@ export default function SignupScreen({ navigation }) {
         onChangeText={setEmail}
         placeholderTextColor="gray"
         keyboardType="email-address"
+        autoCapitalize="none"
       />
       <TextInput
         style={styles.input}

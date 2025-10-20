@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  Alert,
 } from "react-native";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -15,10 +18,48 @@ export default function LoginScreen({ navigation }) {
   const [role, setRole] = useState("student");
   const [showAdminOptions, setShowAdminOptions] = useState(false);
 
-  const handleLogin = () => {
-    console.log("Email:", email);
-    console.log("Password:", password);
-    console.log("Role:", role);
+  // ⚙️ Change this to your local IP address (found using ifconfig)
+  const API_BASE = "http://10.200.70.88:8080";
+ // e.g. "http://192.168.1.12:8080"
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Missing Fields", "Please enter both email and password.");
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${API_BASE}/auth/login`, {
+        email,
+        password,
+      });
+
+      console.log("Login Response:", response.data);
+
+      // Extract tokens from backend response
+      const accessToken = response.data["access_token"];
+      const refreshToken = response.data["refresh_token"];
+
+      if (accessToken && refreshToken) {
+        await AsyncStorage.setItem("access_token", accessToken);
+        await AsyncStorage.setItem("refresh_token", refreshToken);
+      }
+
+      Alert.alert("Login Successful", "Welcome back!");
+
+      // Role-based navigation
+      if (role === "admin") {
+        navigation.replace("AdminHome");
+      } else {
+        navigation.replace("Home");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      Alert.alert(
+        "Login Failed",
+        error.response?.data?.error || "Server error. Please try again."
+      );
+    }
   };
 
   return (
@@ -56,10 +97,7 @@ export default function LoginScreen({ navigation }) {
       {/* Role selection */}
       <View style={styles.roleContainer}>
         <TouchableOpacity
-          style={[
-            styles.roleButton,
-            role === "student" && styles.selectedRole,
-          ]}
+          style={[styles.roleButton, role === "student" && styles.selectedRole]}
           onPress={() => {
             setRole("student");
             setShowAdminOptions(false);
@@ -93,9 +131,11 @@ export default function LoginScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Admin options placeholder */}
+      {/* Admin note */}
       {showAdminOptions && (
-        <Text style={styles.adminText}>Restaurant selection coming soon...</Text>
+        <Text style={styles.adminText}>
+          Restaurant management features coming soon...
+        </Text>
       )}
 
       {/* Login button */}
