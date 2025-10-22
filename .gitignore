@@ -2,4 +2,4 @@ __pycache__
 .env
 paste_json.js
 node_modules
-
+.expo
