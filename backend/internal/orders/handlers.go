@@ -1,13 +1,11 @@
 package orders
 
 import (
-	"campusDoordash/internal/restaurants"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	_ "github.com/google/uuid"
 )
 
 type OrderHandlers struct{
@@ -18,9 +16,8 @@ func NewOrderHandlers(service *OrderService) *OrderHandlers{
 	return &OrderHandlers{service: service}
 }
 
-func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){
-	var req CreateOrderRequest
-	
+func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){	
+	var req CreateOrderRequest	
 	if err := c.ShouldBindJSON(&req); err != nil{
 		c.JSON(http.StatusBadRequest, gin.H{"error":"invalid request body"})
 		return
@@ -91,7 +88,7 @@ func(h * OrderHandlers) GetCustomerOrdersHandler(c * gin.Context){
 }
 
 func(h * OrderHandlers) GetRestaurantOrdersHandlers(c * gin.Context){
-	restaurantID , err := uuid.Parse(c.Param("resaurant_id"))
+	restaurantID , err := uuid.Parse(c.Param("id"))
 	if err != nil{
 		c.JSON(
 		http.StatusBadRequest, 
