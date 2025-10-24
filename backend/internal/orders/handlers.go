@@ -17,6 +17,18 @@ func NewOrderHandlers(service *OrderService) *OrderHandlers{
 }
 
 func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){	
+	userID,exists := c.Get("user_id")
+	
+	if !exists{
+		c.JSON(http.StatusBadRequest, gin.H{"error":"invalid customer id"})
+		return
+	}
+	
+	authenticatedUserID, ok := userID.(uuid.UUID)
+	if !ok{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user ID format"}) 
+		return
+	}
 	var req CreateOrderRequest	
 	if err := c.ShouldBindJSON(&req); err != nil{
 		c.JSON(http.StatusBadRequest, gin.H{"error":"invalid request body"})
@@ -28,6 +40,7 @@ func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){
 		return
 	}
 	
+	req.CustomerID = authenticatedUserID
 	order,err := h.service.CreateOrder(c.Request.Context(), req)
 
 	if err != nil{
