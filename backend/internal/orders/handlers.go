@@ -1,13 +1,11 @@
 package orders
 
 import (
-	"campusDoordash/internal/restaurants"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	_ "github.com/google/uuid"
 )
 
 type OrderHandlers struct{
@@ -18,9 +16,20 @@ func NewOrderHandlers(service *OrderService) *OrderHandlers{
 	return &OrderHandlers{service: service}
 }
 
-func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){
-	var req CreateOrderRequest
+func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){	
+	userID,exists := c.Get("user_id")
 	
+	if !exists{
+		c.JSON(http.StatusBadRequest, gin.H{"error":"invalid customer id"})
+		return
+	}
+	
+	authenticatedUserID, ok := userID.(uuid.UUID)
+	if !ok{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user ID format"}) 
+		return
+	}
+	var req CreateOrderRequest	
 	if err := c.ShouldBindJSON(&req); err != nil{
 		c.JSON(http.StatusBadRequest, gin.H{"error":"invalid request body"})
 		return
@@ -31,6 +40,7 @@ func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){
 		return
 	}
 	
+	req.CustomerID = authenticatedUserID
 	order,err := h.service.CreateOrder(c.Request.Context(), req)
 
 	if err != nil{
@@ -91,7 +101,7 @@ func(h * OrderHandlers) GetCustomerOrdersHandler(c * gin.Context){
 }
 
 func(h * OrderHandlers) GetRestaurantOrdersHandlers(c * gin.Context){
-	restaurantID , err := uuid.Parse(c.Param("resaurant_id"))
+	restaurantID , err := uuid.Parse(c.Param("id"))
 	if err != nil{
 		c.JSON(
 		http.StatusBadRequest, 

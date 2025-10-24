@@ -8,8 +8,6 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-_	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/supabase-community/gotrue-go/types"
 	"github.com/supabase-community/supabase-go"
@@ -131,12 +129,6 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	var err error
-	id := uuid.New()
-	log.Println(id)
-	_, err = Conn.Exec(context.Background(), "INSERT INTO users (email,user_id) VALUES ($1,$2)", req.Email, id)
-	if err != nil {
-		log.Fatal("db insert failed", err)
-	}
 	signupReq := types.SignupRequest{
 		Email:    req.Email,
 		Password: req.Password,
@@ -145,6 +137,18 @@ func RegisterHandler(c *gin.Context) {
 	user, err := supabaseClient.Auth.Signup(signupReq)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	supabaseUserID := user.ID
+	log.Println("Supabase User ID:", supabaseUserID)
+	_,err = Conn.Exec(context.Background(), "INSERT INTO users (user_id, email) VALUES ($1, $2)",
+		supabaseUserID, 
+		req.Email,
+	)
+
+	if err != nil{	
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user record"})
 		return
 	}
 

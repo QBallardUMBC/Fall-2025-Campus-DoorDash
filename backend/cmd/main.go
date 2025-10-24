@@ -2,6 +2,7 @@ package main
 
 import (
 	"campusDoordash/internal/auth"
+	"campusDoordash/internal/orders"
 	"campusDoordash/internal/payments"
 	"campusDoordash/internal/restaurants"
 	"log"
@@ -28,6 +29,8 @@ func main() {
 	restaurantService := restaurants.NewRestaurantService(auth.Conn)
 	restaurantHandlers := restaurants.NewRestaurantHandler(restaurantService)
 
+	orderService := orders.NewOrderService(auth.Conn)
+	orderHandlers := orders.NewOrderHandlers(orderService)
 	router := gin.Default()
 	enableCors(router)
 	router.GET("/auth", auth.AuthHandler)
@@ -46,12 +49,22 @@ func main() {
 	protected := router.Group("/api")
 	protected.Use(auth.AuthMiddleware())
 	{
+		//payment routes
 		protected.POST("/create-payment", payments.CreatePaymentHandler)
+		//restaurant routes
 		protected.GET("/restaurants", restaurantHandlers.GetAllRestaurantHandlers)
 		
 		protected.GET("/restaurants/:id", restaurantHandlers.GetRestaurantByID)
 
 		protected.GET("/restaurants/:id/menu", restaurantHandlers.GetRestaurantMenuHandler)
+		//order routes
+		protected.POST("/orders", orderHandlers.CreateOrderHandler)
+		protected.GET("/orders/:id", orderHandlers.GetOrderByIDHandler)
+		protected.GET("/customers/:customer_id/orders", orderHandlers.GetCustomerOrdersHandler)
+		protected.GET("/restaurants/:id/orders", orderHandlers.GetRestaurantOrdersHandlers)
+		protected.POST("/orders/:id/status", orderHandlers.UpdateOrderStatusHandler)
+		protected.POST("/orders/:id/dasher", orderHandlers.AssignDasherHandler)
+
 	}
 	router.Run(":8080")
 }

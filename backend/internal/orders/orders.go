@@ -3,6 +3,7 @@ package orders
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -74,9 +75,13 @@ func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)
 	deliveryFee := 3.99
 	dasherFee := 2.00
 	total :=  subtotal + deliveryFee + dasherFee
+	orderItemsJSON, err := json.Marshal(req.OrderItems)
 
+	if err != nil{
+		return nil, fmt.Errorf("failed to marshal order items: %v", err)
+	}
 	query := `
-		INSERT INTO orders(
+		INSERT INTO public.orders(
 			id, customer_id, restaurant_id, order_items, 
 			subtotal, delivery_fee, dasher_fee, total, 
 			status, delivery_address, delivery_instructions, 
@@ -96,11 +101,11 @@ func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)
 	now := time.Now()
 	
 	var order Order 
-	err := s.conn.QueryRow(ctx, query,
+	err = s.conn.QueryRow(ctx, query,
 		orderID, 
 		req.CustomerID, 
 		req.RestaurantID, 
-		req.OrderItems, 
+		orderItemsJSON, 
 		subtotal, 
 		deliveryFee, 
 		dasherFee, 
@@ -175,7 +180,6 @@ func (s * OrderService) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*O
 	if err != nil{
 		return nil , err
 	}
-
 	return &order, nil
 }
 
