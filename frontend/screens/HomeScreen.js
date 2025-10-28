@@ -10,13 +10,15 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import Config from "../config";
 
 export default function HomeScreen({ navigation }) {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const API_BASE = "http://10.200.70.88:8080";
- // <-- replace with your local IP address
+  //const API_BASE = "http://10.200.70.88:8080";
+  const API_BASE = Config?.API_BASE ?? "http://localhost:8080";
+  // <-- replace with your local IP address
 
   useEffect(() => {
     const fetchRestaurants = async () => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import Config from "../config";
 
 import {
   View,
@@ -9,11 +9,11 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
-  SafeAreaView, 
   Alert,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 export default function RestaurantDetails({ route, navigation }) {
   const { restaurant } = route.params;
@@ -21,7 +21,8 @@ export default function RestaurantDetails({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
 
-  const API_BASE = "http://10.200.70.88:8080"; // replace with your backend IP
+  //const API_BASE = "http://10.200.70.88:8080"; // replace with your backend IP
+  const API_BASE = Config.API_BASE
 
   useEffect(() => {
     const fetchMenu = async () => {

@@ -8,9 +8,11 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Platform,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Config from "../config";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -19,8 +21,16 @@ export default function LoginScreen({ navigation }) {
   const [showAdminOptions, setShowAdminOptions] = useState(false);
 
   // ⚙️ Change this to your local IP address (found using ifconfig)
-  const API_BASE = "http://10.200.70.88:8080";
- // e.g. "http://192.168.1.12:8080"
+  // Priority: Config.API_BASE -> Android emulator helper -> localhost
+  // For Android emulator use 10.0.2.2 to reach host's localhost.
+  const DEFAULT_ANDROID_LOCAL = "http://10.0.2.2:8080";
+  const DEFAULT_LOCALHOST = "http://localhost:8080";
+  const fallbackBase =
+    Platform.OS === "android" ? DEFAULT_ANDROID_LOCAL : DEFAULT_LOCALHOST;
+  const API_BASE = Config?.API_BASE ?? fallbackBase;
+  // set axios base URL so other screens can use axios without repeating the base
+  axios.defaults.baseURL = API_BASE;
+  console.log("[LoginScreen] API_BASE:", API_BASE);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -31,18 +41,32 @@ export default function LoginScreen({ navigation }) {
     try {
       const response = await axios.post(`${API_BASE}/auth/login`, {
         email,
-        password,
+        password
       });
 
       console.log("Login Response:", response.data);
 
-      // Extract tokens from backend response
-      const accessToken = response.data["access_token"];
-      const refreshToken = response.data["refresh_token"];
+      // Extract tokens from backend response. Backend has a few different
+      // shapes depending on server code (e.g. "access token" vs
+      // "access_token"). Try several fallbacks for robustness.
+      const data = response.data || {};
+      const accessToken = data["access_token"] || data["access token"] || data.user?.access_token || data.user?.AccessToken || data.user?.accessToken;
+      const refreshToken = data["refresh_token"] || data["refresh token"] || data.user?.refresh_token || data.user?.RefreshToken;
 
-      if (accessToken && refreshToken) {
+      // Persist tokens for later use
+      if (accessToken) {
         await AsyncStorage.setItem("access_token", accessToken);
+        // set axios default header so subsequent requests from this app
+        // include the Authorization header automatically
+        axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+      }
+      if (refreshToken) {
         await AsyncStorage.setItem("refresh_token", refreshToken);
+      }
+
+      // Optionally store the whole user object
+      if (data.user) {
+        try { await AsyncStorage.setItem("user", JSON.stringify(data.user)); } catch (e) { /* ignore */ }
       }
 
       Alert.alert("Login Successful", "Welcome back!");
@@ -55,10 +79,8 @@ export default function LoginScreen({ navigation }) {
       }
     } catch (error) {
       console.error("Login error:", error);
-      Alert.alert(
-        "Login Failed",
-        error.response?.data?.error || "Server error. Please try again."
-      );
+      const serverMsg = error.response?.data?.error || error.response?.data?.message || error.message;
+      Alert.alert("Login Failed", serverMsg || "Server error. Please try again.");
     }
   };
 
