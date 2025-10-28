@@ -53,7 +53,7 @@ func main() {
 		protected.POST("/create-payment", payments.CreatePaymentHandler)
 		//restaurant routes
 		protected.GET("/restaurants", restaurantHandlers.GetAllRestaurantHandlers)
-		
+
 		protected.GET("/restaurants/:id", restaurantHandlers.GetRestaurantByID)
 
 		protected.GET("/restaurants/:id/menu", restaurantHandlers.GetRestaurantMenuHandler)
@@ -71,15 +71,11 @@ func main() {
 
 func enableCors(e *gin.Engine) {
 	e.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://foo.com"},
-		AllowMethods:     []string{"PUT", "PATCH"},
-		AllowHeaders:     []string{"Origin"},
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		AllowOriginFunc: func(origin string) bool {
-			return origin == "https://github.com"
-		},
-		MaxAge: 12 * time.Hour,
+		MaxAge:           12 * time.Hour,
 	}))
-
 }
