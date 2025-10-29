@@ -3,160 +3,203 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
   Image,
-  ActivityIndicator,
   StyleSheet,
+  ActivityIndicator,
   Alert,
+  ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { API_BASE } from "../config";
+import { useCart } from "./CartContext";
 
-export default function HomeScreen({ navigation }) {
-  const [restaurants, setRestaurants] = useState([]);
+export default function RestaurantDetails({ route, navigation }) {
+  const { restaurant } = route.params;
+  const [menu, setMenu] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { addToCart } = useCart();
 
-  const fetchRestaurants = async () => {
+  const fetchMenu = async () => {
     try {
       const token = await AsyncStorage.getItem("access_token");
       if (!token) {
-        Alert.alert("Unauthorized", "Please log in first.");
-        navigation.navigate("Login");
+        console.warn("Missing token");
         return;
       }
 
-      const response = await axios.get(`${API_BASE}/api/restaurants`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      console.log("Fetching menu for:", restaurant.restaurant_name);
+      const response = await axios.get(
+        `${API_BASE}/api/restaurants/${restaurant.restaurant_id}/menu`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-      setRestaurants(response.data);
+      console.log("MENU RESPONSE:", response.data);
+      setMenu(response.data.menu || []);
     } catch (error) {
-      console.error("Fetch error:", error.response?.data || error.message);
-      Alert.alert("Error", "Could not load restaurants. Try logging in again.");
+      console.error("Error fetching menu:", error);
+      Alert.alert("Error", "Failed to load menu items");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem("access_token");
-    navigation.navigate("Login");
-  };
-
   useEffect(() => {
-    fetchRestaurants();
+    fetchMenu();
   }, []);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="yellow" />
+  const renderMenuItem = ({ item }) => (
+    <View style={styles.menuCard}>
+      <Image
+        source={{
+          uri:
+            item.image_url ||
+            "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=800&q=60",
+        }}
+        style={styles.menuImage}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.foodName}>{item.food_name}</Text>
+        <Text style={styles.price}>
+          ${item.price ? item.price.toFixed(2) : "N/A"}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => addToCart(item)}
+        >
+          <Text style={styles.addText}>Add to Cart</Text>
+        </TouchableOpacity>
       </View>
-    );
-  }
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Campus DoorDash - UMBC</Text>
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Image
+          source={{
+            uri:
+              restaurant.image_url ||
+              "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&w=1200&q=60",
+          }}
+          style={styles.banner}
+        />
+        <Text style={styles.title}>{restaurant.restaurant_name}</Text>
+        <Text style={styles.subtitle}>Menu & Specials</Text>
+      </View>
 
-      {restaurants.length === 0 ? (
-        <Text style={styles.noData}>No restaurants available.</Text>
+      {/* Menu */}
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="yellow"
+          style={{ marginTop: 30 }}
+        />
+      ) : menu.length === 0 ? (
+        <Text style={styles.noMenu}>No menu items available.</Text>
       ) : (
         <FlatList
-          data={restaurants}
-          keyExtractor={(item) => item.restaurant_id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() =>
-                navigation.navigate("RestaurantDetails", { restaurant: item })
-              }
-            >
-              <Image
-                source={{
-                  uri:
-                    item.image_url ||
-                    "https://via.placeholder.com/300x200.png?text=Restaurant",
-                }}
-                style={styles.image}
-              />
-              <View style={styles.info}>
-                <Text style={styles.name}>{item.restaurant_name}</Text>
-                <Text style={styles.desc}>
-                  {item.description || "Delicious meals available"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          showsVerticalScrollIndicator={false}
+          data={menu}
+          keyExtractor={(item) => item.food_id.toString()}
+          renderItem={renderMenuItem}
+          scrollEnabled={false}
+          contentContainerStyle={{ paddingBottom: 50 }}
         />
       )}
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
+      {/* View Cart Button */}
+      <TouchableOpacity
+        style={styles.viewCartButton}
+        onPress={() => navigation.navigate("Cart")}
+      >
+        <Text style={styles.viewCartText}>View Cart 🛒</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
-    paddingHorizontal: 15,
-    paddingTop: 15,
+    backgroundColor: "black",
   },
   header: {
+    alignItems: "center",
+    paddingBottom: 20,
+  },
+  banner: {
+    width: "100%",
+    height: 220,
+    resizeMode: "cover",
+  },
+  title: {
     color: "yellow",
     fontSize: 24,
     fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
+    marginTop: 10,
   },
-  card: {
-    backgroundColor: "#111",
-    borderRadius: 12,
-    marginBottom: 20,
-    overflow: "hidden",
+  subtitle: {
+    color: "gray",
+    fontSize: 16,
+    marginTop: 4,
   },
-  image: {
-    width: "100%",
-    height: 180,
+  menuCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1a1a1a",
+    padding: 10,
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
-  info: {
-    padding: 12,
+  menuImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    marginRight: 12,
   },
-  name: {
-    color: "#fff",
+  foodName: {
+    color: "white",
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
-  desc: {
-    color: "#aaa",
+  price: {
+    color: "yellow",
+    fontSize: 16,
     marginTop: 5,
   },
-  noData: {
-    color: "#888",
-    textAlign: "center",
-    marginTop: 30,
-  },
-  logoutButton: {
+  addButton: {
     backgroundColor: "yellow",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginVertical: 10,
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginTop: 5,
+    alignSelf: "flex-start",
   },
-  logoutText: {
-    color: "#000",
-    fontSize: 16,
+  addText: {
     fontWeight: "bold",
+    color: "black",
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
+  noMenu: {
+    color: "white",
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+  },
+  viewCartButton: {
+    backgroundColor: "yellow",
+    padding: 14,
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginVertical: 20,
+  },
+  viewCartText: {
+    color: "black",
+    fontWeight: "bold",
+    fontSize: 18,
+    textAlign: "center",
   },
 });
