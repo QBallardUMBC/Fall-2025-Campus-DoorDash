@@ -1,12 +1,8 @@
-import Constants from "expo-constants";
+// config.js
+import { Platform } from "react-native";
 
-const expoExtra = Constants?.expoConfig?.extra ?? {};
-const API_BASE =
-  expoExtra.API_BASE ??
-  process.env.EXPO_PUBLIC_API_BASE ??
-  process.env.API_BASE ??
-  "http://localhost:8080";
+const LOCALHOST = "http://localhost:8080";
+const ANDROID_LOCAL = "http://10.0.2.2:8080"; // for Android emulator
 
-export default {
-  API_BASE,
-};
+export const API_BASE =
+  Platform.OS === "android" ? ANDROID_LOCAL : LOCALHOST;
