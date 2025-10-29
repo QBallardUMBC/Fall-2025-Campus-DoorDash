@@ -1,96 +1,102 @@
-import React, { useState, useEffect } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Config from "../config";
-
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   FlatList,
-  StyleSheet,
+  TouchableOpacity,
+  Image,
   ActivityIndicator,
+  StyleSheet,
   Alert,
 } from "react-native";
-import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { API_BASE } from "../config";
 
-
-export default function RestaurantDetails({ route, navigation }) {
-  const { restaurant } = route.params;
-  const [menuItems, setMenuItems] = useState([]);
+export default function HomeScreen({ navigation }) {
+  const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState([]);
 
-  //const API_BASE = "http://10.200.70.88:8080"; // replace with your backend IP
-  const API_BASE = Config.API_BASE
+  const fetchRestaurants = async () => {
+    try {
+      const token = await AsyncStorage.getItem("access_token");
+      if (!token) {
+        Alert.alert("Unauthorized", "Please log in first.");
+        navigation.navigate("Login");
+        return;
+      }
+
+      const response = await axios.get(`${API_BASE}/api/restaurants`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setRestaurants(response.data);
+    } catch (error) {
+      console.error("Fetch error:", error.response?.data || error.message);
+      Alert.alert("Error", "Could not load restaurants. Try logging in again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem("access_token");
+    navigation.navigate("Login");
+  };
 
   useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const token = await AsyncStorage.getItem("access_token");
-        const response = await axios.get(`${API_BASE}/restaurants/${restaurant.id}/menu`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setMenuItems(response.data.menu || []);
-      } catch (error) {
-        console.error("Error fetching menu:", error);
-        Alert.alert("Error", "Unable to load menu. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMenu();
-  }, [restaurant.id]);
+    fetchRestaurants();
+  }, []);
 
-  const addToCart = (item) => {
-    setCart((prevCart) => [...prevCart, item]);
-    Alert.alert("Added to Cart", `${item.name} added to your order.`);
-  };
-
-  const proceedToCheckout = () => {
-    if (cart.length === 0) {
-      Alert.alert("Empty Cart", "Add at least one item before checkout.");
-      return;
-    }
-    navigation.navigate("Checkout", { restaurant, cart });
-  };
-
-  const renderMenuItem = ({ item }) => (
-    <View style={styles.menuItem}>
-      <View>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemDescription}>{item.description}</Text>
-        <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="yellow" />
       </View>
-      <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
-        <Text style={styles.addButtonText}>Add</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.restaurantName}>{restaurant.name}</Text>
-      <Text style={styles.restaurantCuisine}>{restaurant.cuisine}</Text>
+    <View style={styles.container}>
+      <Text style={styles.header}>Campus DoorDash - UMBC</Text>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#FFD700" style={{ marginTop: 20 }} />
+      {restaurants.length === 0 ? (
+        <Text style={styles.noData}>No restaurants available.</Text>
       ) : (
         <FlatList
-          data={menuItems}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderMenuItem}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          data={restaurants}
+          keyExtractor={(item) => item.restaurant_id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() =>
+                navigation.navigate("RestaurantDetails", { restaurant: item })
+              }
+            >
+              <Image
+                source={{
+                  uri:
+                    item.image_url ||
+                    "https://via.placeholder.com/300x200.png?text=Restaurant",
+                }}
+                style={styles.image}
+              />
+              <View style={styles.info}>
+                <Text style={styles.name}>{item.restaurant_name}</Text>
+                <Text style={styles.desc}>
+                  {item.description || "Delicious meals available"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
-      <View style={styles.footer}>
-        <Text style={styles.cartText}>Items in Cart: {cart.length}</Text>
-        <TouchableOpacity style={styles.checkoutButton} onPress={proceedToCheckout}>
-          <Text style={styles.checkoutText}>Proceed to Checkout</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -98,81 +104,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
+    paddingTop: 15,
   },
-  restaurantName: {
-    color: "#FFD700",
-    fontSize: 28,
+  header: {
+    color: "yellow",
+    fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    marginVertical: 10,
+    marginBottom: 20,
   },
-  restaurantCuisine: {
-    color: "white",
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 15,
+  card: {
+    backgroundColor: "#111",
+    borderRadius: 12,
+    marginBottom: 20,
+    overflow: "hidden",
   },
-  menuItem: {
-    backgroundColor: "#1C1C1C",
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#FFD700",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  image: {
+    width: "100%",
+    height: 180,
   },
-  itemName: {
-    color: "#FFD700",
+  info: {
+    padding: 12,
+  },
+  name: {
+    color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
   },
-  itemDescription: {
-    color: "#ccc",
-    fontSize: 13,
-    marginVertical: 3,
+  desc: {
+    color: "#aaa",
+    marginTop: 5,
   },
-  itemPrice: {
-    color: "white",
-    fontSize: 15,
+  noData: {
+    color: "#888",
+    textAlign: "center",
+    marginTop: 30,
   },
-  addButton: {
-    backgroundColor: "#FFD700",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  addButtonText: {
-    color: "black",
-    fontWeight: "bold",
-  },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#111",
+  logoutButton: {
+    backgroundColor: "yellow",
     padding: 15,
-    borderTopColor: "#FFD700",
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  cartText: {
-    color: "white",
-    fontSize: 16,
-  },
-  checkoutButton: {
-    backgroundColor: "#FFD700",
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    alignItems: "center",
+    marginVertical: 10,
   },
-  checkoutText: {
-    color: "black",
+  logoutText: {
+    color: "#000",
+    fontSize: 16,
     fontWeight: "bold",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
   },
 });

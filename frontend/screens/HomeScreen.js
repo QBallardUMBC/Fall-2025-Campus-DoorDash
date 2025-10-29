@@ -4,6 +4,7 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  Image,
   ActivityIndicator,
   StyleSheet,
   Alert,
@@ -19,6 +20,7 @@ export default function HomeScreen({ navigation }) {
   const fetchRestaurants = async () => {
     try {
       const token = await AsyncStorage.getItem("access_token");
+      console.log("ACCESS TOKEN:", token);
 
       if (!token) {
         Alert.alert("Unauthorized", "Please log in first.");
@@ -32,7 +34,7 @@ export default function HomeScreen({ navigation }) {
 
       setRestaurants(response.data);
     } catch (error) {
-      console.error("Failed to fetch restaurants:", error.response?.data || error.message);
+      console.error("Fetch error:", error.response?.data || error.message);
       Alert.alert("Error", "Could not load restaurants. Try logging in again.");
     } finally {
       setLoading(false);
@@ -50,7 +52,7 @@ export default function HomeScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="yellow" />
       </View>
     );
@@ -58,14 +60,14 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Campus DoorDash - UMBC</Text>
+      <Text style={styles.header}>Campus DoorDash - UMBC</Text>
 
       {restaurants.length === 0 ? (
         <Text style={styles.noData}>No restaurants available.</Text>
       ) : (
         <FlatList
           data={restaurants}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.restaurant_id}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
@@ -73,10 +75,23 @@ export default function HomeScreen({ navigation }) {
                 navigation.navigate("RestaurantDetails", { restaurant: item })
               }
             >
-              <Text style={styles.restaurantName}>{item.name}</Text>
-              <Text style={styles.restaurantDesc}>{item.description}</Text>
+              <Image
+                source={{
+                  uri:
+                    item.image_url ||
+                    "https://via.placeholder.com/300x200.png?text=Restaurant",
+                }}
+                style={styles.image}
+              />
+              <View style={styles.info}>
+                <Text style={styles.name}>{item.restaurant_name}</Text>
+                <Text style={styles.desc}>
+                  {item.description || "Delicious meals available"}
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
@@ -91,47 +106,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
-    padding: 20,
+    paddingHorizontal: 15,
+    paddingTop: 15,
   },
-  title: {
+  header: {
     color: "yellow",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 20,
   },
   card: {
     backgroundColor: "#111",
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#333",
+    borderRadius: 12,
+    marginBottom: 20,
+    overflow: "hidden",
   },
-  restaurantName: {
+  image: {
+    width: "100%",
+    height: 180,
+  },
+  info: {
+    padding: 12,
+  },
+  name: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
   },
-  restaurantDesc: {
+  desc: {
     color: "#aaa",
     marginTop: 5,
   },
   noData: {
     color: "#888",
     textAlign: "center",
-    marginTop: 20,
+    marginTop: 30,
   },
   logoutButton: {
     backgroundColor: "yellow",
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
-    marginTop: 20,
+    marginVertical: 10,
   },
   logoutText: {
     color: "#000",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
   },
 });
