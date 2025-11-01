@@ -19,6 +19,7 @@ var supabaseClient *supabase.Client
 type AuthRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
+	IsDasher bool	`json:"is_dasher"`	
 }
 
 func RefreshTokenHandler(c *gin.Context) {
@@ -70,7 +71,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		//check if token is of bearer kind
 		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid authorization format. Use 'Beared <token>'",
+				"error": "invalid authorization format. Use 'Bearer <token>'",
 			})
 			c.Abort()
 			return
@@ -142,14 +143,29 @@ func RegisterHandler(c *gin.Context) {
 	
 	supabaseUserID := user.ID
 	log.Println("Supabase User ID:", supabaseUserID)
-	_,err = Conn.Exec(context.Background(), "INSERT INTO users (user_id, email) VALUES ($1, $2)",
-		supabaseUserID, 
-		req.Email,
-	)
 
-	if err != nil{	
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user record"})
-		return
+	if req.IsDasher{
+		
+		_,err = Conn.Exec(context.Background(), "INSERT INTO dashers (dasher_id, email) VALUES ($1, $2)",
+			supabaseUserID, 
+			req.Email,
+		)
+
+		if err != nil{	
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create dasher record"})
+			return
+		}
+
+	}else{
+		_,err = Conn.Exec(context.Background(), "INSERT INTO users (user_id, email) VALUES ($1, $2)",
+			supabaseUserID, 
+			req.Email,
+		)
+
+		if err != nil{	
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user record"})
+			return
+		}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
