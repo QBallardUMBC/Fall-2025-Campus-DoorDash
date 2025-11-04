@@ -28,7 +28,7 @@ func main() {
 	auth.SetupAuthClient()
 	restaurantService := restaurants.NewRestaurantService(auth.Conn)
 	restaurantHandlers := restaurants.NewRestaurantHandler(restaurantService)
-
+	paymentService := &payments.PaymentService{Conn: auth.Conn}
 	orderService := orders.NewOrderService(auth.Conn)
 	orderHandlers := orders.NewOrderHandlers(orderService)
 	router := gin.Default()
@@ -37,6 +37,7 @@ func main() {
 	router.POST("/auth/register", auth.RegisterHandler)
 	router.POST("/auth/login", auth.LoginHandler)
 	router.POST("/auth/refresh", auth.RefreshTokenHandler)
+	router.POST("/webhooks/stripe", paymentService.StripeWebhookHandle())
 	router.GET("/test-protected", auth.AuthMiddleware(), func(c *gin.Context) {
 		user, _ := c.Get("user")
 		c.JSON(http.StatusOK, gin.H{
@@ -48,9 +49,7 @@ func main() {
 	//protected api routes
 	protected := router.Group("/api")
 	protected.Use(auth.AuthMiddleware())
-	{
-		//payment routes
-		protected.POST("/create-payment", payments.CreatePaymentHandler)
+	{	
 		//restaurant routes
 		protected.GET("/restaurants", restaurantHandlers.GetAllRestaurantHandlers)
 
