@@ -2,9 +2,11 @@
 package orders
 
 import (
+	"campusDoordash/internal/payments"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -70,24 +72,33 @@ func NewOrderService(conn *pgxpool.Pool) *OrderService{
 	return &OrderService{conn}	
 }
 
-func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)(*Order, error){
+func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)(*Order, string, error){
 	subtotal := calculateSubtotal(req.OrderItems)
 	deliveryFee := 3.99
 	dasherFee := 2.00
 	total :=  subtotal + deliveryFee + dasherFee
-	orderItemsJSON, err := json.Marshal(req.OrderItems)
+	payment := payments.CalculatePayment(total, "")
+	intent, err := payments.CreatePaymentIntent(payment)
 
 	if err != nil{
-		return nil, fmt.Errorf("failed to marshal order items: %v", err)
+		return nil, "empty secret",fmt.Errorf("failed to create payment intent %v", err)	
+	}
+	paymentIntentID := intent.ID 
+	log.Println(paymentIntentID)	
+	orderItemsJSON, err := json.Marshal(req.OrderItems)
+	
+	
+	if err != nil{
+		return nil, "empty secret", fmt.Errorf("failed to marshal order items: %v", err)
 	}
 	query := `
 		INSERT INTO public.orders(
 			id, customer_id, restaurant_id, order_items, 
 			subtotal, delivery_fee, dasher_fee, total, 
-			status, delivery_address, delivery_instructions, 
-			created_at, updated_at
+			status, delivery_address, delivery_instructions,
+			payment_intent_id, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		) 
 
 		RETURNING id, created_at, customer_id, restaurant_id, dasher_id,
@@ -113,6 +124,7 @@ func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)
 		StatusPending, 
 		req.DeliveryAddress, 
 		req.DeliveryInstructions, 
+		paymentIntentID,
 		now, 
 		now, 
 	).Scan(
@@ -138,10 +150,13 @@ func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)
 	)
 
 	if err != nil{
-		return nil, err
+		return nil, "empty secret", err
 	}
 	
-	return &order, nil
+	fmt.Println("Payment Intent created:", paymentIntentID)
+	order.PaymentIntentID = &paymentIntentID
+
+	return &order, intent.ClientSecret, nil
 }
 
 func (s * OrderService) GetOrderByID(ctx context.Context, orderID uuid.UUID) (*Order, error){
@@ -342,6 +357,9 @@ func calculateSubtotal(items [] OrderItem) float64{
 	var subtotal float64
 
 	for _,item := range items{
+		if item .Price == 0{
+			item.Price = 1.0	
+		}
 		subtotal += item.Price * float64(item.Quantity)
 	}
 

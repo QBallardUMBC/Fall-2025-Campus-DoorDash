@@ -30,18 +30,17 @@ func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){
 		return
 	}
 	var req CreateOrderRequest	
-	if err := c.ShouldBindJSON(&req); err != nil{
-		c.JSON(http.StatusBadRequest, gin.H{"error":"invalid request body"})
+	if err := c.ShouldBindJSON(&req); err != nil{ c.JSON(http.StatusBadRequest, gin.H{"error":"invalid request body"})
 		return
 	}
-
+	log.Printf("Incoming order: %+v\n", req)
 	if len(req.OrderItems) == 0{
 		c.JSON(http.StatusBadRequest, gin.H{"error": "order must contain at least 1 item"})
 		return
 	}
-	
-	req.CustomerID = authenticatedUserID
-	order,err := h.service.CreateOrder(c.Request.Context(), req)
+	log.Println(req.CustomerID)	
+	log.Println(authenticatedUserID)
+	order, clientSecret, err := h.service.CreateOrder(c.Request.Context(), req)
 
 	if err != nil{
 		log.Printf("failed to create order: %v", err)	
@@ -51,7 +50,8 @@ func (h * OrderHandlers) CreateOrderHandler (c * gin.Context){
 		return
 	}
 
-	c.JSON(http.StatusCreated, order)
+	c.JSON(http.StatusCreated, gin.H{"order": order, 
+	"client_secret": clientSecret})
 }	
 
 func (h * OrderHandlers) GetOrderByIDHandler(c * gin.Context){
