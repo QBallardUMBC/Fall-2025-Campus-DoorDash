@@ -73,11 +73,12 @@ func NewOrderService(conn *pgxpool.Pool) *OrderService{
 }
 
 func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)(*Order, string, error){
+	orderID := uuid.New()
 	subtotal := calculateSubtotal(req.OrderItems)
 	deliveryFee := 3.99
 	dasherFee := 2.00
 	total :=  subtotal + deliveryFee + dasherFee
-	payment := payments.CalculatePayment(total, "")
+	payment := payments.CalculatePayment(total, orderID.String())
 	intent, err := payments.CreatePaymentIntent(payment)
 
 	if err != nil{
@@ -108,7 +109,7 @@ func (s * OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest)
 			picked_at, delivered_at
 	`
 
-	orderID := uuid.New()
+	
 	now := time.Now()
 	
 	var order Order 
