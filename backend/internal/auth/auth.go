@@ -68,6 +68,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
 		//check if token is of bearer kind
 		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -87,8 +88,18 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		var isDasher bool
+		err = Conn.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM dashers WHERE dasher_id = $1)", userResp.ID).Scan(&isDasher)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify user type"})
+			c.Abort()
+			return
+		}
+
 		c.Set("user", userResp.User)
 		c.Set("user_id", userResp.ID)
+		c.Set("is_dasher", isDasher)
 		c.Next()
 	}
 }
@@ -111,9 +122,25 @@ func LoginHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
+	
+	var exists bool 
+	if req.IsDasher{
+		err = Conn.QueryRow(context.Background(), 
+			"SELECT EXISTS(SELECT 1 FROM dashers WHERE dasher_id = $1)", user.User.ID).Scan(&exists)	
+	}else{
+		
+		err = Conn.QueryRow(context.Background(), 
+			"SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", user.User.ID).Scan(&exists)	
+	}
+
+	if err != nil || !exists{
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "no matching account found"})	
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":       "login good",
+		"is_dasher": 	 req.IsDasher,
 		"user":          user,
 		"access token":  user.AccessToken,
 		"refresh_token": user.RefreshToken,
