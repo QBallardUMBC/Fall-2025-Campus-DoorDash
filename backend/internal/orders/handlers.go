@@ -209,3 +209,98 @@ func (h * OrderHandlers) AssignDasherHandler(c *gin.Context){
 	c.JSON(http.StatusOK, gin.H{"error": "dasher assigned succesfully"})
 }
 
+func (h * OrderHandlers) GetAvailableOrdersHandler(c * gin.Context){
+	isDasher := c.GetBool("is_dasher")
+
+	if !isDasher{
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":"access restricted to dashers",
+		})
+		return
+	}
+
+	orders, err := h.service.GetAvailableOrders(c.Request.Context())
+
+	if err != nil{
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to fetch available orders",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"available_orders": orders, 
+		"count": len(orders),
+	})
+}
+
+func (h * OrderHandlers) AcceptOrderHandler(c * gin.Context){
+	isDasher := c.GetBool("is_dasher")
+
+	if !isDasher{
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "access restricted to dashers",
+		})
+		return
+	}
+
+	dasherID, err := uuid.Parse(c.GetString("user_id"))
+	if err != nil{
+		c.JSON(http.StatusInternalServerError,gin.H{
+				"error": "invalid dasher id",
+			})
+
+		return
+	}
+
+	orderID, err := uuid.Parse(c.Param("id"))
+	if err != nil{	
+		c.JSON(http.StatusInternalServerError,gin.H{
+				"error": "invalid order id",
+			})
+
+		return
+	}	
+
+	err = h.service.AcceptOrder(c.Request.Context(), orderID, dasherID)
+
+	if err != nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "order accepted successfully",
+		"order_id":   orderID,
+		"dasher_id":  dasherID,
+		"new_status": StatusConfirmed,
+	})
+}
+
+func (h * OrderHandlers) GetDasherOrdersHandler(c * gin.Context){
+	isDasher := c.GetBool("is_dasher")
+	if !isDasher{
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":"access restricted to dashers",
+		})
+
+		return 
+	}
+
+	dasherID, err := uuid.Parse(c.GetString("user_id"))
+	if err != nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid dasher id"})
+		return
+	}
+	
+	orders, err := h.service.GetOrdersByDasherID(c.Request.Context(), dasherID)
+	if err != nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch dasher orders"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"orders": orders,
+		"count":  len(orders),
+	})
+}

@@ -366,3 +366,147 @@ func calculateSubtotal(items [] OrderItem) float64{
 
 	return subtotal
 }
+
+func (s *OrderService) GetAvailableOrders(ctx context.Context) ([]Order, error){
+	
+	query := `
+		SELECT id, created_at, customer_id, restaurant_id, dasher_id, 
+				order_items, subtotal, delivery_fee, dasher_fee, total, 
+				status, delivery_address, delivery_instructions, 
+				payment_intent_id, updated_at, confirmed_at, ready_at, 
+				picked_at, delivered_at
+			FROM orders 
+			WHERE status = $1 AND dasher_id IS NULL
+			ORDER BY created_at ASC
+	`
+
+	rows, err := s.conn.Query(ctx, query, StatusPending)
+
+	if err != nil{
+		return nil, err
+	}
+	defer rows.Close()
+	var orders []Order
+	for rows.Next(){
+		var o Order
+		err := rows.Scan(
+			&o.ID,
+			&o.CreatedAt,
+			&o.CustomerID,
+			&o.RestaurantID,
+			&o.DasherID,
+			&o.OrderItems,
+			&o.Subtotal,
+			&o.DeliveryFee,
+			&o.DasherFee,
+			&o.Total,
+			&o.Status,
+			&o.DeliveryAddress,
+			&o.DeliveryInstructions,
+			&o.PaymentIntentID,
+			&o.UpdatedAt,
+			&o.ConfirmedAt,
+			&o.ReadyAt,
+			&o.PickedUpAt,
+			&o.DeliveredAt,
+		)
+
+		if err != nil{
+			return nil, err
+		}
+
+		orders = append(orders, o)
+	}
+
+	if err := rows.Err(); err != nil{
+		return nil, err
+	}
+	return orders, nil
+}
+
+func(s * OrderService) AcceptOrder(ctx context.Context, orderID, dasherID uuid.UUID) error{
+	var currentStatus OrderStatus
+
+	err := s.conn.QueryRow(ctx, "SELECT status FROM orders WHERE id = $1", orderID).Scan(&currentStatus)
+	
+	if err != nil{
+		return fmt.Errorf("order not found: %w", err)
+	}
+
+	if currentStatus != StatusPending{
+		return fmt.Errorf("order is not avaialable for pickup")	
+	}
+
+	query := `
+		UPDATE orders 
+		SET dasher_id = $1, status = $2, updated_at = $3
+		WHERE id = $4
+	`
+
+	_, err = s.conn.Exec(ctx, query, dasherID, StatusConfirmed, time.Now(), orderID)
+	
+	if err != nil{
+		return fmt.Errorf("failed to accept order:%v", err)
+	}
+
+	return nil
+}
+
+func (s * OrderService) GetOrdersByDasherID(ctx context.Context, dasherID uuid.UUID) ([]Order, error){
+	query := `
+		SELECT id, created_at, customer_id, restaurant_id, dasher_id, 
+			order_items, subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions, 
+			payment_intent_id, updated_at, confirmed_at, ready_at, 
+			picked_at, delivered_at
+		FROM orders 
+		WHERE dasher_id = $1
+		ORDER BY created_at DESC
+	`	
+	
+	rows, err := s.conn.Query(ctx, query, dasherID)
+
+	if err != nil{
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var orders []Order
+	for rows.Next(){
+		var o Order
+		err := rows.Scan(
+			&o.ID,
+			&o.CreatedAt,
+			&o.CustomerID,
+			&o.RestaurantID,
+			&o.DasherID,
+			&o.OrderItems,
+			&o.Subtotal,
+			&o.DeliveryFee,
+			&o.DasherFee,
+			&o.Total,
+			&o.Status,
+			&o.DeliveryAddress,
+			&o.DeliveryInstructions,
+			&o.PaymentIntentID,
+			&o.UpdatedAt,
+			&o.ConfirmedAt,
+			&o.ReadyAt,
+			&o.PickedUpAt,
+			&o.DeliveredAt,
+		)
+
+		if err != nil{
+			return nil, err
+		}
+
+		orders = append(orders, o)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders,nil
+}

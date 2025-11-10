@@ -63,7 +63,10 @@ func main() {
 		protected.GET("/restaurants/:id/orders", orderHandlers.GetRestaurantOrdersHandlers)
 		protected.POST("/orders/:id/status", orderHandlers.UpdateOrderStatusHandler)
 		protected.POST("/orders/:id/dasher", orderHandlers.AssignDasherHandler)
-
+		//dasher routes	
+		protected.GET("/dashers/orders/available", orderHandlers.GetAvailableOrdersHandler)
+		protected.POST("dashers/orders/accept/:id", orderHandlers.AcceptOrderHandler)
+		protected.GET("dashers/orders/active", orderHandlers.GetDasherOrdersHandler)
 	}
 	router.Run(":8080")
 }
