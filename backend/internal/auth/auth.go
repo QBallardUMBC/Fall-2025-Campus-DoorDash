@@ -90,7 +90,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		var isDasher bool
-		err = Conn.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM dashers WHERE dasher_id = $1)", userResp.ID).Scan(&isDasher)
+		err = Conn.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM dashers WHERE dasher_id = $1)", userResp.User.ID).Scan(&isDasher)
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify user type"})
 			c.Abort()
@@ -98,11 +98,14 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		c.Set("user", userResp.User)
-		c.Set("user_id", userResp.ID)
+		c.Set("user_id", userResp.User.ID.String())
 		c.Set("is_dasher", isDasher)
+
+		log.Printf("Authenticated user_id: %v | is_dasher: %v", userResp.User.ID, isDasher)
 		c.Next()
 	}
 }
+
 func AuthHandler(c *gin.Context) {
 	log.Println("Connecting to db")
 	InitDB()

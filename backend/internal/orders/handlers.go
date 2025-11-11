@@ -246,6 +246,9 @@ func (h * OrderHandlers) AcceptOrderHandler(c * gin.Context){
 
 	dasherID, err := uuid.Parse(c.GetString("user_id"))
 	if err != nil{
+
+		log.Println("dasher id error here!!!", err)
+		log.Println("user id here!!!! in order handler file", c.GetString("user_id"))
 		c.JSON(http.StatusInternalServerError,gin.H{
 				"error": "invalid dasher id",
 			})
