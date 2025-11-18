@@ -14,7 +14,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { API_BASE } from "../config";
-import { useCart } from "./CartContext";
+import { useCart } from "../context/CartContext";
 
 export default function RestaurantDetails({ route, navigation }) {
   const { restaurant } = route.params;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
-import { getCustomerOrders } from "../api/orders";
+import { getCustomerOrders } from "../api/orderAPI";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function OrdersScreen({ navigation }) {

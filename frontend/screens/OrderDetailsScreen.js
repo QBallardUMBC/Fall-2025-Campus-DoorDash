@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { useRoute } from "@react-navigation/native";
-import { getOrderById } from "../api/orders"; // You'll create this in orders.js
+import { getOrderById } from "../api/orderAPI"; // You'll create this in orders.js
 import moment from "moment";
 
 const OrderDetailsScreen = () => {

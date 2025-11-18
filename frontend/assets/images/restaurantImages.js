@@ -4,13 +4,14 @@ export const restaurantImages = {
   // Crispy fried chicken tenders and burgers
   "Absurd Bird & Burgers": "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=800&q=80",
   
-  // Chick-fil-A - actual chicken sandwich close-up
-  "Chick-fil-A": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Chick-fil-A_Logo.svg/1200px-Chick-fil-A_Logo.svg.png", 
+  // Chick-fil-A logo
+  "Chick-fil-A": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Chick-fil-A_Logo.svg/2560px-Chick-fil-A_Logo.svg.png",
+  
   // BBQ and Southern comfort food
   "Copperhead Jacks": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80",
   
-  // Dunkin' branded donuts and coffee
-  "Dunkin": "https://images.unsplash.com/photo-1514517521153-1be72277b32f?auto=format&fit=crop&w=800&q=80",
+  // Dunkin' - colorful donuts with pink frosting
+  "Dunkin": "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80",
   
   // Fresh bagels with cream cheese and spreads
   "Einstein Brother's Bagels": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=800&q=80",
@@ -24,11 +25,11 @@ export const restaurantImages = {
   // Italian pasta and pizza
   "Piccola Italia": "https://images.unsplash.com/photo-1595854341625-f33ee10dbf94?auto=format&fit=crop&w=800&q=80",
   
-  // Modern American fusion
-  "R&D": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80",
+  // Modern American fusion restaurant plating
+  "R&D": "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=800&q=80",
   
-  // Starbucks coffee cup with green logo
-  "Starbucks": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&w=800&q=80",
+  // Starbucks logo
+  "Starbucks": "https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Starbucks_Corporation_Logo_2011.svg/1200px-Starbucks_Corporation_Logo_2011.svg.png",
   
   // Street food tacos and bowls
   "Street Fluent": "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=800&q=80",
