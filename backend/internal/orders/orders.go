@@ -452,6 +452,67 @@ func(s * OrderService) AcceptOrder(ctx context.Context, orderID, dasherID uuid.U
 	return nil
 }
 
+func (s * OrderService) CheckUserHistory(ctx context.Context,customerID uuid.UUID) ([]Order, error){
+		
+	query := `
+		SELECT id, created_at, customer_id, restaurant_id, dasher_id, 
+			order_items, subtotal, delivery_fee, dasher_fee, total, 
+			status, delivery_address, delivery_instructions, 
+			payment_intent_id, updated_at, confirmed_at, ready_at, 
+			picked_at, delivered_at
+		FROM orders 
+		WHERE customer_id = $1
+		ORDER BY created_at DESC
+	`	
+
+	rows, err := s.conn.Query(ctx, query, customerID)
+
+	if err != nil{
+		return nil, err
+	}
+
+	defer rows.Close()
+
+
+	var orders []Order
+	for rows.Next(){
+		var o Order
+		err := rows.Scan(
+			&o.ID,
+			&o.CreatedAt,
+			&o.CustomerID,
+			&o.RestaurantID,
+			&o.DasherID,
+			&o.OrderItems,
+			&o.Subtotal,
+			&o.DeliveryFee,
+			&o.DasherFee,
+			&o.Total,
+			&o.Status,
+			&o.DeliveryAddress,
+			&o.DeliveryInstructions,
+			&o.PaymentIntentID,
+			&o.UpdatedAt,
+			&o.ConfirmedAt,
+			&o.ReadyAt,
+			&o.PickedUpAt,
+			&o.DeliveredAt,
+		)
+
+		if err != nil{
+			return nil, err
+		}
+
+		orders = append(orders, o)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders,nil
+}
+
 func (s * OrderService) GetOrdersByDasherID(ctx context.Context, dasherID uuid.UUID) ([]Order, error){
 	query := `
 		SELECT id, created_at, customer_id, restaurant_id, dasher_id, 
@@ -510,3 +571,35 @@ func (s * OrderService) GetOrdersByDasherID(ctx context.Context, dasherID uuid.U
 
 	return orders,nil
 }
+
+func (s * OrderService) CompleteOrder(ctx context.Context, orderID ,dasherID uuid.UUID) (bool, error){
+
+	var currentStatus OrderStatus
+
+	err := s.conn.QueryRow(ctx, "SELECT status FROM orders WHERE id = $1 AND dasher_id = $2", orderID, dasherID).Scan(&currentStatus)
+
+	
+	if err != nil{
+		return false,fmt.Errorf("order not found or incorrect dasher: %w", err)
+	}
+
+	if currentStatus != StatusConfirmed{
+		return false, fmt.Errorf("order has not been confirmed to be delivered")
+	}
+
+	//at this point update order status and delete order from db
+	
+	query := `
+		UPDATE orders
+		SET status = $1, updated_at = $2, delivered_at = $3
+		WHERE id = $4 AND dasher_id = $5
+	`
+	_, err = s.conn.Exec(ctx, query, StatusDelivered, time.Now(), time.Now(), orderID, dasherID)
+	
+	if err != nil{
+		return false,fmt.Errorf("failed to update and complete order:%v", err)
+	}
+
+	return true,nil		
+}
+

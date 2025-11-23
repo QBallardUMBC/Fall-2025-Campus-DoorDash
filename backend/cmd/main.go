@@ -67,6 +67,10 @@ func main() {
 		protected.GET("/dashers/orders/available", orderHandlers.GetAvailableOrdersHandler)
 		protected.POST("dashers/orders/accept/:id", orderHandlers.AcceptOrderHandler)
 		protected.GET("dashers/orders/active", orderHandlers.GetDasherOrdersHandler)
+
+		protected.GET("/customers/orders/history", orderHandlers.GetHistory)
+		protected.POST("/dashers/orders/:id/complete", orderHandlers.CompleteOrderHandler)
+
 	}
 	router.Run(":8080")
 }
