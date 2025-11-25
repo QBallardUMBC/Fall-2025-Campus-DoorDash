@@ -1,7 +1,12 @@
 import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
-import { useCart } from "./CartContext";
-
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import { useCart } from "../context/CartContext";
 
 export default function CartScreen({ navigation }) {
   const { cart, totalPrice, removeFromCart, clearCart } = useCart();

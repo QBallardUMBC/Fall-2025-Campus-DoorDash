@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { foodImages } from "../assets/images/foodImages";
 import {
   View,
   Text,
@@ -13,7 +14,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { API_BASE } from "../config";
-import { useCart } from "./CartContext";
+import { useCart } from "../context/CartContext";
 
 export default function RestaurantDetails({ route, navigation }) {
   const { restaurant } = route.params;
@@ -52,13 +53,14 @@ export default function RestaurantDetails({ route, navigation }) {
   const renderMenuItem = ({ item }) => (
     <View style={styles.menuCard}>
       <Image
-        source={{
-          uri:
-            item.image_url ||
-            "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=800&q=60",
-        }}
-        style={styles.menuImage}
-      />
+  source={{
+    uri:
+      foodImages[item.food_name] ||
+      "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=800&q=60",
+  }}
+  style={styles.menuImage}
+/>
+
       <View style={{ flex: 1 }}>
         <Text style={styles.foodName}>{item.food_name}</Text>
         <Text style={styles.price}>
