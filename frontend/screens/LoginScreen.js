@@ -1,267 +1,372 @@
-// frontend/LoginScreen.js
-import React, { useState } from "react";
+// frontend/screens/LoginScreen.js
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
-  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Animated,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Config from "../config";
+import { API_BASE } from "../config";
 
-export default function LoginScreen({ navigation }) {
+const ACCENT = "#FFCC00";
+const BACKGROUND = "#050509";
+
+export default function LoginScreen({
+  navigation,
+  setToken,
+  setIsDasher: setGlobalIsDasher,
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("student");
-  const [showAdminOptions, setShowAdminOptions] = useState(false);
+  const [isDasher, setIsDasher] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // ⚙️ Change this to your local IP address (found using ifconfig)
-  // Priority: Config.API_BASE -> Android emulator helper -> localhost
-  // For Android emulator use 10.0.2.2 to reach host's localhost.
-  const DEFAULT_ANDROID_LOCAL = "http://10.0.2.2:8080";
-  const DEFAULT_LOCALHOST = "http://localhost:8080";
-  const fallbackBase =
-    Platform.OS === "android" ? DEFAULT_ANDROID_LOCAL : DEFAULT_LOCALHOST;
-  const API_BASE = Config?.API_BASE ?? fallbackBase;
-  // set axios base URL so other screens can use axios without repeating the base
-  axios.defaults.baseURL = API_BASE;
-  console.log("[LoginScreen] API_BASE:", API_BASE);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const formScale = useRef(new Animated.Value(0.96)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
+  const emailScale = useRef(new Animated.Value(1)).current;
+  const passwordScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.spring(formScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, formScale]);
+
+  const animateInput = (animRef, to) => {
+    Animated.spring(animRef, {
+      toValue: to,
+      friction: 7,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(buttonScale, {
+      toValue: 0.97,
+      friction: 5,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(buttonScale, {
+      toValue: 1,
+      friction: 5,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Missing Fields", "Please enter both email and password.");
-      return;
-    }
-
     try {
-      const response = await axios.post(`${API_BASE}/auth/login`, {
+      setLoading(true);
+      setError("");
+
+      const res = await axios.post(`${API_BASE}/auth/login`, {
         email,
-        password
+        password,
+        is_dasher: isDasher,
       });
 
-      console.log("Login Response:", response.data);
+      await AsyncStorage.setItem("access_token", res.data["access token"]);
+      await AsyncStorage.setItem("refresh_token", res.data.refresh_token);
+      await AsyncStorage.setItem("is_dasher", JSON.stringify(isDasher));
+      await AsyncStorage.setItem("user_email", email);
 
-      // Extract tokens from backend response. Backend has a few different
-      // shapes depending on server code (e.g. "access token" vs
-      // "access_token"). Try several fallbacks for robustness.
-      const data = response.data || {};
-      const accessToken = data["access_token"] || data["access token"] || data.user?.access_token || data.user?.AccessToken || data.user?.accessToken;
-      const refreshToken = data["refresh_token"] || data["refresh token"] || data.user?.refresh_token || data.user?.RefreshToken;
+      // update root auth state so App switches stacks
+      setToken(res.data["access token"]);
+      setGlobalIsDasher(isDasher);
 
-      // Persist tokens for later use
-      if (accessToken) {
-        await AsyncStorage.setItem("access_token", accessToken);
-        // set axios default header so subsequent requests from this app
-        // include the Authorization header automatically
-        axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-      }
-      if (refreshToken) {
-        await AsyncStorage.setItem("refresh_token", refreshToken);
-      }
-
-      // Optionally store the whole user object
-      if (data.user) {
-        try { await AsyncStorage.setItem("user", JSON.stringify(data.user)); } catch (e) { /* ignore */ }
-      }
-
-      Alert.alert("Login Successful", "Welcome back!");
-
-      // Role-based navigation
-      if (role === "admin") {
-        navigation.replace("AdminHome");
+      if (isDasher) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "DasherHome" }],
+        });
       } else {
-        navigation.replace("Home");
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Home" }],
+        });
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      const serverMsg = error.response?.data?.error || error.response?.data?.message || error.message;
-      Alert.alert("Login Failed", serverMsg || "Server error. Please try again.");
+    } catch (err) {
+      console.log(err.response?.data);
+      setError("Invalid credentials or account type mismatch");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      {/* Logo */}
-      <Image
-        source={{
-          uri: "https://upload.wikimedia.org/wikipedia/en/thumb/2/29/UMBC_Retrievers_logo.svg/1200px-UMBC_Retrievers_logo.svg.png",
-        }}
-        style={styles.logo}
-      />
-
-      {/* Title */}
-      <Text style={styles.title}>Campus DoorDash</Text>
-      <Text style={styles.subtitle}>UMBC Edition</Text>
-
-      {/* Input fields */}
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        placeholderTextColor="gray"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        placeholderTextColor="gray"
-        secureTextEntry
-      />
-
-      {/* Role selection */}
-      <View style={styles.roleContainer}>
-        <TouchableOpacity
-          style={[styles.roleButton, role === "student" && styles.selectedRole]}
-          onPress={() => {
-            setRole("student");
-            setShowAdminOptions(false);
-          }}
+    <View style={styles.screen}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, width: "100%" }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text
+          <Animated.View
             style={[
-              styles.roleText,
-              role === "student" && styles.selectedRoleText,
+              styles.card,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: formScale }],
+              },
             ]}
           >
-            Student
-          </Text>
-        </TouchableOpacity>
+            <Text style={styles.brand}>Campus DoorDash</Text>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>
+              Sign in to continue as a customer or dasher.
+            </Text>
 
-        <TouchableOpacity
-          style={[styles.roleButton, role === "admin" && styles.selectedRole]}
-          onPress={() => {
-            setRole("admin");
-            setShowAdminOptions(true);
-          }}
-        >
-          <Text
-            style={[
-              styles.roleText,
-              role === "admin" && styles.selectedRoleText,
-            ]}
-          >
-            Admin
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <View style={styles.togglePill}>
+              <TouchableOpacity
+                style={[
+                  styles.togglePillItem,
+                  !isDasher && styles.togglePillItemActive,
+                ]}
+                onPress={() => setIsDasher(false)}
+              >
+                <Text
+                  style={[
+                    styles.togglePillText,
+                    !isDasher && styles.togglePillTextActive,
+                  ]}
+                >
+                  Customer
+                </Text>
+              </TouchableOpacity>
 
-      {/* Admin note */}
-      {showAdminOptions && (
-        <Text style={styles.adminText}>
-          Restaurant management features coming soon...
-        </Text>
-      )}
+              <TouchableOpacity
+                style={[
+                  styles.togglePillItem,
+                  isDasher && styles.togglePillItemActive,
+                ]}
+                onPress={() => setIsDasher(true)}
+              >
+                <Text
+                  style={[
+                    styles.togglePillText,
+                    isDasher && styles.togglePillTextActive,
+                  ]}
+                >
+                  Dasher
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-      {/* Login button */}
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        <Text style={styles.loginButtonText}>Log In</Text>
-      </TouchableOpacity>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {/* Signup link */}
-      <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-        <Text style={styles.signupText}>
-          Don’t have an account?{" "}
-          <Text style={styles.signupHighlight}>Sign Up</Text>
-        </Text>
-      </TouchableOpacity>
+            <Animated.View
+              style={[
+                styles.inputWrapper,
+                {
+                  transform: [{ scale: emailScale }],
+                },
+              ]}
+            >
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="you@example.com"
+                placeholderTextColor="#A0A0A0"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                onChangeText={setEmail}
+                onFocus={() => animateInput(emailScale, 1.02)}
+                onBlur={() => animateInput(emailScale, 1)}
+              />
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.inputWrapper,
+                {
+                  transform: [{ scale: passwordScale }],
+                },
+              ]}
+            >
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#A0A0A0"
+                secureTextEntry
+                onChangeText={setPassword}
+                onFocus={() => animateInput(passwordScale, 1.02)}
+                onBlur={() => animateInput(passwordScale, 1)}
+              />
+            </Animated.View>
+
+            <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={handleLogin}
+                disabled={loading}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                activeOpacity={0.9}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={styles.buttonText}>Login</Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Signup")}
+              style={styles.footerLink}
+            >
+              <Text style={styles.footerText}>
+                Don&apos;t have an account?{" "}
+                <Text style={styles.footerHighlight}>Sign up</Text>
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    backgroundColor: BACKGROUND,
   },
-  logo: {
-    width: 100,
-    height: 100,
-    marginBottom: 20,
-    resizeMode: "contain",
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 24,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.25,
+    shadowRadius: 32,
+    elevation: 8,
+  },
+  brand: {
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#999",
+    marginBottom: 8,
   },
   title: {
-    color: "#FFD700",
     fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 5,
+    fontWeight: "700",
+    color: "#111827",
   },
   subtitle: {
-    color: "white",
-    fontSize: 16,
-    marginBottom: 30,
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  togglePill: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 999,
+    padding: 4,
+    marginBottom: 20,
+  },
+  togglePillItem: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  togglePillItemActive: {
+    backgroundColor: ACCENT,
+  },
+  togglePillText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+  togglePillTextActive: {
+    color: "#111827",
+  },
+  inputWrapper: {
+    marginBottom: 14,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4B5563",
+    marginBottom: 6,
   },
   input: {
-    width: "90%",
-    backgroundColor: "white",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  roleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "90%",
-    marginBottom: 20,
-  },
-  roleButton: {
-    flex: 1,
-    padding: 12,
-    marginHorizontal: 5,
-    borderRadius: 10,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#111827",
     borderWidth: 1,
-    borderColor: "#FFD700",
+    borderColor: "#E5E7EB",
+  },
+  button: {
+    backgroundColor: ACCENT,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonText: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  footerLink: {
+    marginTop: 18,
     alignItems: "center",
   },
-  roleText: {
-    color: "white",
+  footerText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  footerHighlight: {
+    color: ACCENT,
     fontWeight: "600",
   },
-  selectedRole: {
-    backgroundColor: "#FFD700",
-  },
-  selectedRoleText: {
-    color: "black",
-  },
-  adminText: {
-    color: "white",
-    marginBottom: 20,
-  },
-  loginButton: {
-    backgroundColor: "#FFD700",
-    paddingVertical: 15,
-    width: "90%",
-    borderRadius: 10,
-    alignItems: "center",
-    marginBottom: 20,
-    shadowColor: "#FFD700",
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
-  },
-  loginButtonText: {
-    color: "black",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  signupText: {
-    color: "white",
-    fontSize: 14,
-  },
-  signupHighlight: {
-    color: "#FFD700",
-    fontWeight: "bold",
+  error: {
+    color: "#DC2626",
+    textAlign: "left",
+    marginBottom: 10,
+    fontSize: 13,
   },
 });

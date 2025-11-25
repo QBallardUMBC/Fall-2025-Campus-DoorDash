@@ -15,7 +15,7 @@ import axios from "axios";
 import { API_BASE } from "../config";
 import { restaurantImages } from "../assets/images/restaurantImages";
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, setToken, setIsDasher }) {
   const { width } = useWindowDimensions();
   const numColumns = width > 900 ? 3 : 2; // 3 on desktop, 2 on mobile/tablet
   const CARD_SIZE = width / numColumns - 24;
@@ -97,7 +97,14 @@ export default function HomeScreen({ navigation }) {
       <TouchableOpacity
         style={styles.logoutButton}
         onPress={async () => {
-          await AsyncStorage.removeItem("access_token");
+          await AsyncStorage.multiRemove([
+            "access_token",
+            "refresh_token",
+            "is_dasher",
+            "user_email",
+          ]);
+          setToken(null);
+          setIsDasher(false);
           navigation.replace("Login");
         }}
       >

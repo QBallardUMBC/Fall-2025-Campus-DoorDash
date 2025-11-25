@@ -307,3 +307,63 @@ func (h * OrderHandlers) GetDasherOrdersHandler(c * gin.Context){
 		"count":  len(orders),
 	})
 }
+
+func (h * OrderHandlers) GetHistory(c * gin.Context){
+	
+	userID, err := uuid.Parse(c.GetString("user_id"))
+
+	if err != nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	history, err := h.service.CheckUserHistory(c.Request.Context(), userID)
+	if err != nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check user history"})
+		return
+	}
+
+
+	c.JSON(http.StatusOK, gin.H{
+		"order_history": history,
+		"count":  len(history),
+	})
+}
+
+func (h * OrderHandlers) CompleteOrderHandler(c * gin.Context){
+	isDasher := c.GetBool("is_dasher")
+	if !isDasher {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access restricted to dashers"})
+		return
+	}
+	
+	orderID, err := uuid.Parse(c.Param("id"))
+
+	if err != nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid order ID"})
+		return
+	}
+	
+	userID := c.GetString("user_id")
+	dasherID, err := uuid.Parse(userID)
+	if err != nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error" : "invalid dasher id"})
+		return
+	}
+
+	success, err := h.service.CompleteOrder(c.Request.Context(), orderID, dasherID)
+	if err != nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if success{
+		c.JSON(http.StatusOK, gin.H{
+			"message":    "order marked as delivered successfully",
+			"order_id":   orderID,
+			"dasher_id":  dasherID,
+			"new_status": StatusDelivered,
+		})
+	}
+}
+
