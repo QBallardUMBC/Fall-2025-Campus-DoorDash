@@ -1,9 +1,15 @@
 // frontend/screens/dasher/DasherHomeScreen.js
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-export default function DasherHomeScreen({ navigation, setToken, setIsDasher }) {
+import { useAuth } from "../../context/AuthContext";
+import { COLORS } from "../../colors";
+
+const ACCENT = COLORS.gold;
+
+export default function DasherHomeScreen({ navigation }) {
   const [dasherEmail, setDasherEmail] = useState(null);
+  const { logout } = useAuth();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -14,59 +20,98 @@ export default function DasherHomeScreen({ navigation, setToken, setIsDasher }) 
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: "black", padding: 20 }}>
-      <Text style={{ color: "white", fontSize: 32, fontWeight: "bold", marginBottom: 10 }}>
-        Dasher Dashboard
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.heading}>Dasher Dashboard</Text>
 
-      <Text style={{ color: "white", marginBottom: 30 }}>
+      <Text style={styles.subheading}>
         Logged in as: {dasherEmail || "Loading..."}
       </Text>
 
       <TouchableOpacity
-        style={{
-          backgroundColor: "#ffcc00",
-          padding: 15,
-          borderRadius: 8,
-          marginBottom: 15,
-        }}
+        style={styles.primaryButton}
         onPress={() => navigation.navigate("DasherAvailableOrders")}
+        activeOpacity={0.9}
       >
-        <Text style={{ fontSize: 18, fontWeight: "bold" }}>View Available Orders</Text>
+        <Text style={styles.primaryButtonText}>View Available Orders</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={{
-          backgroundColor: "#ffa500",
-          padding: 15,
-          borderRadius: 8,
-        }}
+        style={styles.secondaryButton}
         onPress={() => navigation.navigate("DasherActiveOrders")}
+        activeOpacity={0.9}
       >
-        <Text style={{ fontSize: 18, fontWeight: "bold" }}>View Active Orders</Text>
+        <Text style={styles.secondaryButtonText}>View Active Orders</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={{
-          backgroundColor: "yellow",
-          padding: 12,
-          borderRadius: 8,
-          marginTop: 20,
-        }}
-        onPress={async () => {
-          await AsyncStorage.multiRemove([
-            "access_token",
-            "refresh_token",
-            "is_dasher",
-            "user_email",
-          ]);
-          setToken(null);
-          setIsDasher(false);
-          navigation.replace("Login");
-        }}
+        style={styles.logoutButton}
+        onPress={logout}
+        activeOpacity={0.9}
       >
-        <Text style={{ fontWeight: "bold" }}>Logout</Text>
+        <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+    padding: 24,
+  },
+  heading: {
+    color: ACCENT,
+    fontSize: 30,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  subheading: {
+    color: COLORS.gray,
+    marginBottom: 28,
+    fontSize: 14,
+  },
+  primaryButton: {
+    backgroundColor: ACCENT,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
+    marginBottom: 14,
+  },
+  primaryButtonText: {
+    color: COLORS.black,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  secondaryButton: {
+    backgroundColor: COLORS.darkCard,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 24,
+  },
+  secondaryButtonText: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  logoutButton: {
+    backgroundColor: ACCENT,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: "auto",
+  },
+  logoutText: {
+    color: COLORS.black,
+    fontWeight: "700",
+    fontSize: 16,
+  },
+});

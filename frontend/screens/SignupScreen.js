@@ -14,9 +14,12 @@ import {
 } from "react-native";
 import axios from "axios";
 import { API_BASE } from "../config";
+import { COLORS } from "../colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "../context/AuthContext";
 
-const ACCENT = "#FFCC00";
-const BACKGROUND = "#050509";
+const ACCENT = COLORS.gold;
+const BACKGROUND = COLORS.black;
 
 export default function SignupScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -24,6 +27,8 @@ export default function SignupScreen({ navigation }) {
   const [isDasher, setIsDasher] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const { login } = useAuth();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const formScale = useRef(new Animated.Value(0.96)).current;
@@ -79,16 +84,40 @@ export default function SignupScreen({ navigation }) {
       setLoading(true);
       setError("");
 
+      const trimmedEmail = email.trim();
+
       await axios.post(`${API_BASE}/auth/register`, {
-        email,
+        email: trimmedEmail,
         password,
         is_dasher: isDasher,
       });
 
-      navigation.navigate("Login");
+      // Persist role + email for future sessions
+      await AsyncStorage.multiSet([
+        ["is_dasher", JSON.stringify(isDasher)],
+        ["user_email", trimmedEmail],
+      ]);
+
+      // Immediately log in so AuthContext + navigation update
+      await login(trimmedEmail, password, isDasher);
     } catch (err) {
-      console.log(err.response?.data);
-      setError("Failed to create account.");
+      console.log(
+        "SIGNUP ERROR:",
+        err?.response?.data || err?.message || err
+      );
+
+      if (!err?.response) {
+        setError("Unable to reach server. Check your connection.");
+        return;
+      }
+
+      const data = err.response.data || {};
+      const message =
+        typeof data === "string"
+          ? data
+          : data.error || data.message || "";
+
+      setError(message || "Failed to create account.");
     } finally {
       setLoading(false);
     }
@@ -242,38 +271,42 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.darkCard,
     borderRadius: 24,
     padding: 24,
-    shadowColor: "#000",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.25,
     shadowRadius: 32,
-    elevation: 8,
+    elevation: 10,
   },
   brand: {
     textTransform: "uppercase",
     letterSpacing: 2,
     fontSize: 12,
     fontWeight: "700",
-    color: "#999",
+    color: COLORS.gray,
     marginBottom: 8,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: 30,
+    fontWeight: "800",
+    color: ACCENT,
   },
   subtitle: {
     fontSize: 14,
-    color: "#6B7280",
+    color: COLORS.gray,
     marginTop: 6,
     marginBottom: 20,
   },
   togglePill: {
     flexDirection: "row",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.black,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     padding: 4,
     marginBottom: 20,
   },
@@ -290,10 +323,10 @@ const styles = StyleSheet.create({
   togglePillText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
+    color: COLORS.gray,
   },
   togglePillTextActive: {
-    color: "#111827",
+    color: COLORS.black,
   },
   inputWrapper: {
     marginBottom: 14,
@@ -301,18 +334,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#4B5563",
+    color: COLORS.white,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.input,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: "#111827",
+    color: COLORS.white,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
   },
   button: {
     backgroundColor: ACCENT,
@@ -321,9 +354,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   buttonText: {
-    color: "#111827",
+    color: COLORS.black,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -333,7 +371,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: "#6B7280",
+    color: COLORS.gray,
   },
   footerHighlight: {
     color: ACCENT,

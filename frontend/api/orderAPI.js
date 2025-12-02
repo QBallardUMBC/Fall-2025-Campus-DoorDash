@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "../config";
 
 // Helper to get authorization headers
-const getAuthHeaders = async () => {
+export const getAuthHeaders = async () => {
   const token = await AsyncStorage.getItem("access_token");
   return { Authorization: `Bearer ${token}` };
 };
@@ -28,6 +28,24 @@ export const getCustomerOrders = async (customerId) => {
     return response.data.orders;
   } catch (error) {
     console.error("Error fetching customer orders:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Get full order history for the authenticated customer
+export const getOrderHistory = async () => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.get(
+      `${API_BASE}/api/customers/orders/history`,
+      { headers }
+    );
+    return response.data.order_history || [];
+  } catch (error) {
+    console.error(
+      "Error fetching order history:",
+      error.response?.data || error.message
+    );
     throw error;
   }
 };

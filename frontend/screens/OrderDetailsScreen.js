@@ -1,8 +1,17 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  Animated,
+} from "react-native";
 import { useRoute } from "@react-navigation/native";
-import { getOrderById } from "../api/orderAPI"; // You'll create this in orders.js
+import { getOrderById } from "../api/orderAPI";
 import moment from "moment";
+import { COLORS, STATUS_COLORS } from "../colors";
 
 const OrderDetailsScreen = () => {
   const route = useRoute();
@@ -10,6 +19,7 @@ const OrderDetailsScreen = () => {
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -26,11 +36,21 @@ const OrderDetailsScreen = () => {
     fetchOrder();
   }, [orderId]);
 
+  useEffect(() => {
+    if (!loading) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [loading, fadeAnim]);
+
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#E23744" />
-        <Text>Loading order details...</Text>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+        <Text style={styles.loadingText}>Loading order details...</Text>
       </View>
     );
   }
@@ -38,13 +58,13 @@ const OrderDetailsScreen = () => {
   if (!order) {
     return (
       <View style={styles.center}>
-        <Text>Order not found.</Text>
+        <Text style={styles.errorText}>Order not found.</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <Animated.ScrollView style={[styles.container, { opacity: fadeAnim }]}>
       {/* 🧾 Order Header */}
       <View style={styles.header}>
         <Text style={styles.orderId}>Order ID: {order.id}</Text>
@@ -86,81 +106,103 @@ const OrderDetailsScreen = () => {
           </Text>
         )}
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.black,
     paddingHorizontal: 15,
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: COLORS.black,
+  },
+  loadingText: {
+    color: COLORS.gray,
+    marginTop: 8,
+  },
+  errorText: {
+    color: "#D32F2F",
   },
   header: {
     paddingVertical: 10,
-    borderBottomColor: "#ccc",
+    borderBottomColor: COLORS.border,
     borderBottomWidth: 1,
     marginBottom: 15,
   },
   orderId: {
     fontSize: 16,
     fontWeight: "600",
+    color: COLORS.white,
   },
   status: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#E23744",
+    color: STATUS_COLORS.pending,
     marginTop: 5,
   },
   date: {
     fontSize: 14,
-    color: "#666",
+    color: COLORS.gray,
     marginTop: 4,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
     marginVertical: 10,
+    color: COLORS.white,
   },
   itemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: COLORS.border,
   },
   itemName: {
     fontSize: 16,
+    color: COLORS.white,
     flex: 1,
   },
   itemQty: {
     fontSize: 16,
+    color: COLORS.gray,
     width: 40,
     textAlign: "center",
   },
   itemPrice: {
     fontSize: 16,
     fontWeight: "600",
+    color: COLORS.gold,
   },
   summaryBox: {
-    backgroundColor: "#f8f8f8",
-    borderRadius: 8,
+    backgroundColor: COLORS.darkCard,
+    borderRadius: 16,
     padding: 15,
     marginTop: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   summaryText: {
     fontSize: 16,
+    color: COLORS.gray,
     marginVertical: 3,
   },
   totalText: {
     fontSize: 18,
     fontWeight: "700",
     marginTop: 10,
+    color: COLORS.gold,
   },
   deliveryBox: {
     marginTop: 20,
@@ -168,11 +210,12 @@ const styles = StyleSheet.create({
   },
   address: {
     fontSize: 16,
+    color: COLORS.white,
   },
   instructions: {
     marginTop: 5,
     fontSize: 14,
-    color: "#555",
+    color: COLORS.gray,
   },
 });
 

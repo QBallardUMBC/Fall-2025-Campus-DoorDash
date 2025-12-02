@@ -12,24 +12,23 @@ import {
   ScrollView,
   Animated,
 } from "react-native";
-import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_BASE } from "../config";
+import { COLORS } from "../colors";
+import { useAuth } from "../context/AuthContext";
 
-const ACCENT = "#FFCC00";
-const BACKGROUND = "#050509";
+const ACCENT = COLORS.gold;
+const BACKGROUND = COLORS.black;
 
-export default function LoginScreen({
-  navigation,
-  setToken,
-  setIsDasher: setGlobalIsDasher,
-}) {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isDasher, setIsDasher] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const { login } = useAuth();
+
+  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const formScale = useRef(new Animated.Value(0.96)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -37,6 +36,19 @@ export default function LoginScreen({
   const passwordScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Restore last-used role for toggle, if available
+    const restoreRole = async () => {
+      try {
+        const savedRole = await AsyncStorage.getItem("is_dasher");
+        if (savedRole !== null) {
+          setIsDasher(savedRole === "true");
+        }
+      } catch {
+        // ignore
+      }
+    };
+    restoreRole();
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -50,11 +62,11 @@ export default function LoginScreen({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [fadeAnim, formScale]);
+  }, []);
 
-  const animateInput = (animRef, to) => {
-    Animated.spring(animRef, {
-      toValue: to,
+  const animateInput = (ref, value) => {
+    Animated.spring(ref, {
+      toValue: value,
       friction: 7,
       tension: 80,
       useNativeDriver: true,
@@ -64,8 +76,6 @@ export default function LoginScreen({
   const handlePressIn = () => {
     Animated.spring(buttonScale, {
       toValue: 0.97,
-      friction: 5,
-      tension: 80,
       useNativeDriver: true,
     }).start();
   };
@@ -73,46 +83,47 @@ export default function LoginScreen({
   const handlePressOut = () => {
     Animated.spring(buttonScale, {
       toValue: 1,
-      friction: 5,
-      tension: 80,
       useNativeDriver: true,
     }).start();
   };
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
 
-      const res = await axios.post(`${API_BASE}/auth/login`, {
-        email,
-        password,
-        is_dasher: isDasher,
-      });
-
-      await AsyncStorage.setItem("access_token", res.data["access token"]);
-      await AsyncStorage.setItem("refresh_token", res.data.refresh_token);
-      await AsyncStorage.setItem("is_dasher", JSON.stringify(isDasher));
-      await AsyncStorage.setItem("user_email", email);
-
-      // update root auth state so App switches stacks
-      setToken(res.data["access token"]);
-      setGlobalIsDasher(isDasher);
-
-      if (isDasher) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "DasherHome" }],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Home" }],
-        });
-      }
+      await login(email.trim(), password, isDasher);
+      // On success, AuthContext will update and App.* will route
     } catch (err) {
-      console.log(err.response?.data);
-      setError("Invalid credentials or account type mismatch");
+      console.log("LOGIN ERROR:", err?.response?.data || err?.message || err);
+
+      if (!err?.response) {
+        setError("Unable to reach server. Check your connection.");
+        return;
+      }
+
+      const data = err.response.data || {};
+      const message =
+        typeof data === "string"
+          ? data
+          : data.error || data.message || "";
+      const lower = (message || "").toLowerCase();
+
+      if (lower.includes("no matching account")) {
+        setError("This email is not registered for the selected role.");
+      } else if (
+        err.response.status === 401 ||
+        lower.includes("invalid credentials")
+      ) {
+        setError("Incorrect email or password.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -143,6 +154,7 @@ export default function LoginScreen({
               Sign in to continue as a customer or dasher.
             </Text>
 
+            {/* Role Toggle */}
             <View style={styles.togglePill}>
               <TouchableOpacity
                 style={[
@@ -181,13 +193,9 @@ export default function LoginScreen({
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
+            {/* Email */}
             <Animated.View
-              style={[
-                styles.inputWrapper,
-                {
-                  transform: [{ scale: emailScale }],
-                },
-              ]}
+              style={[styles.inputWrapper, { transform: [{ scale: emailScale }] }]}
             >
               <Text style={styles.label}>Email</Text>
               <TextInput
@@ -202,12 +210,11 @@ export default function LoginScreen({
               />
             </Animated.View>
 
+            {/* Password */}
             <Animated.View
               style={[
                 styles.inputWrapper,
-                {
-                  transform: [{ scale: passwordScale }],
-                },
+                { transform: [{ scale: passwordScale }] },
               ]}
             >
               <Text style={styles.label}>Password</Text>
@@ -222,6 +229,7 @@ export default function LoginScreen({
               />
             </Animated.View>
 
+            {/* Button */}
             <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
               <TouchableOpacity
                 style={styles.button}
@@ -244,7 +252,7 @@ export default function LoginScreen({
               style={styles.footerLink}
             >
               <Text style={styles.footerText}>
-                Don&apos;t have an account?{" "}
+                {"Don't have an account? "}
                 <Text style={styles.footerHighlight}>Sign up</Text>
               </Text>
             </TouchableOpacity>
@@ -266,38 +274,42 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.darkCard,
     borderRadius: 24,
     padding: 24,
-    shadowColor: "#000",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.25,
     shadowRadius: 32,
-    elevation: 8,
+    elevation: 10,
   },
   brand: {
     textTransform: "uppercase",
     letterSpacing: 2,
     fontSize: 12,
     fontWeight: "700",
-    color: "#999",
+    color: COLORS.gray,
     marginBottom: 8,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: 30,
+    fontWeight: "800",
+    color: ACCENT,
   },
   subtitle: {
     fontSize: 14,
-    color: "#6B7280",
+    color: COLORS.gray,
     marginTop: 6,
     marginBottom: 20,
   },
   togglePill: {
     flexDirection: "row",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: COLORS.black,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     padding: 4,
     marginBottom: 20,
   },
@@ -314,10 +326,10 @@ const styles = StyleSheet.create({
   togglePillText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#6B7280",
+    color: COLORS.gray,
   },
   togglePillTextActive: {
-    color: "#111827",
+    color: COLORS.black,
   },
   inputWrapper: {
     marginBottom: 14,
@@ -325,18 +337,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#4B5563",
+    color: COLORS.white,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.input,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: "#111827",
+    color: COLORS.white,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
   },
   button: {
     backgroundColor: ACCENT,
@@ -345,9 +357,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   buttonText: {
-    color: "#111827",
+    color: COLORS.black,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -357,14 +374,14 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: "#6B7280",
+    color: COLORS.gray,
   },
   footerHighlight: {
     color: ACCENT,
     fontWeight: "600",
   },
   error: {
-    color: "#DC2626",
+    color: "#D32F2F",
     textAlign: "left",
     marginBottom: 10,
     fontSize: 13,

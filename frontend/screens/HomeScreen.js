@@ -14,14 +14,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { API_BASE } from "../config";
 import { restaurantImages } from "../assets/images/restaurantImages";
+import { COLORS } from "../colors";
+import { useAuth } from "../context/AuthContext";
 
-export default function HomeScreen({ navigation, setToken, setIsDasher }) {
+const ACCENT = COLORS.gold;
+
+export default function HomeScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const numColumns = width > 900 ? 3 : 2; // 3 on desktop, 2 on mobile/tablet
   const CARD_SIZE = width / numColumns - 24;
 
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const { logout } = useAuth();
 
   const fetchRestaurants = async () => {
     try {
@@ -72,7 +78,7 @@ export default function HomeScreen({ navigation, setToken, setIsDasher }) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="yellow" />
+        <ActivityIndicator size="large" color={ACCENT} />
       </View>
     );
   }
@@ -96,17 +102,7 @@ export default function HomeScreen({ navigation, setToken, setIsDasher }) {
 
       <TouchableOpacity
         style={styles.logoutButton}
-        onPress={async () => {
-          await AsyncStorage.multiRemove([
-            "access_token",
-            "refresh_token",
-            "is_dasher",
-            "user_email",
-          ]);
-          setToken(null);
-          setIsDasher(false);
-          navigation.replace("Login");
-        }}
+        onPress={logout}
       >
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
@@ -117,30 +113,32 @@ export default function HomeScreen({ navigation, setToken, setIsDasher }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "black",
+    backgroundColor: COLORS.black,
     paddingTop: 50,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
   },
   title: {
-    color: "yellow",
-    fontSize: 22,
+    color: ACCENT,
+    fontSize: 26,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 18,
   },
   list: {
     paddingBottom: 100,
   },
   card: {
-    backgroundColor: "#1a1a1a",
-    borderRadius: 14,
+    backgroundColor: COLORS.darkCard,
+    borderRadius: 18,
     margin: 6,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
   },
   image: {
     width: "100%",
@@ -154,24 +152,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   name: {
-    color: "white",
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",
   },
   noData: {
-    color: "white",
+    color: COLORS.gray,
     textAlign: "center",
     marginTop: 20,
   },
   logoutButton: {
-    backgroundColor: "yellow",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
+    backgroundColor: ACCENT,
+    paddingVertical: 12,
+    borderRadius: 14,
+    marginTop: 14,
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
   logoutText: {
     textAlign: "center",
-    fontWeight: "bold",
+    fontWeight: "700",
+    color: COLORS.black,
   },
 });

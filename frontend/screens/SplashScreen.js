@@ -2,18 +2,20 @@
 import React, { useEffect } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { COLORS } from "../colors";
 
 export default function SplashScreen({ navigation }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const token = await AsyncStorage.getItem("access_token");
+        const role = await AsyncStorage.getItem("is_dasher");
+        const isDasher = role === "true";
 
         if (token) {
-          console.log("Existing token found. Auto-login...");
-          navigation.replace("Home"); // redirect to Home
+          navigation.replace(isDasher ? "DasherHome" : "Home");
         } else {
-          navigation.replace("Login"); // no token → go to Login
+          navigation.replace("Login");
         }
       } catch (err) {
         console.error("Auth check failed:", err);
@@ -27,7 +29,7 @@ export default function SplashScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Campus DoorDash</Text>
-      <ActivityIndicator size="large" color="#FFD700" />
+      <ActivityIndicator size="large" color={COLORS.gold} />
     </View>
   );
 }
@@ -37,11 +39,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
+    backgroundColor: COLORS.black,
   },
   title: {
-    color: "#FFD700",
-    fontSize: 24,
+    color: COLORS.gold,
+    fontSize: 28,
+    fontWeight: "800",
     marginBottom: 20,
   },
 });

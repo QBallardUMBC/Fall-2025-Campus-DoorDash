@@ -1,32 +1,106 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
-import { getCustomerOrders } from "../api/orderAPI";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
+import { getOrderHistory } from "../api/orderAPI";
 
 export default function OrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      const userId = await AsyncStorage.getItem("user_id");
-      const data = await getCustomerOrders(userId);
-      setOrders(data);
+  const loadOrders = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    setError("");
+    try {
+      const data = await getOrderHistory();
+      setOrders(data || []);
+    } catch (err) {
+      console.log("Error fetching order history:", err);
+      setError("Failed to load order history. Pull to refresh.");
+    } finally {
       setLoading(false);
-    };
-    fetchOrders();
+      setRefreshing(false);
+    }
   }, []);
 
-  if (loading) return <ActivityIndicator color="yellow" size="large" />;
+  useEffect(() => {
+    loadOrders(false);
+  }, [loadOrders]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadOrders(true);
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "black", justifyContent: "center" }}>
+        <ActivityIndicator color="yellow" size="large" />
+      </View>
+    );
+  }
+
+  const renderStatusBadge = (status) => {
+    const normalized = (status || "").toLowerCase();
+    let color = "#4B5563";
+    if (normalized === "pending") color = "#F59E0B";
+    else if (normalized === "confirmed" || normalized === "preparing") color = "#3B82F6";
+    else if (normalized === "delivered") color = "#10B981";
+    else if (normalized === "cancelled") color = "#EF4444";
+
+    return (
+      <View
+        style={{
+          alignSelf: "flex-start",
+          backgroundColor: color,
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 999,
+          marginBottom: 4,
+        }}
+      >
+        <Text style={{ color: "black", fontSize: 11, fontWeight: "700" }}>
+          {(status || "UNKNOWN").toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: "black", padding: 16 }}>
-      <Text style={{ color: "yellow", fontSize: 22, textAlign: "center", marginBottom: 10 }}>
+      <Text
+        style={{
+          color: "yellow",
+          fontSize: 22,
+          textAlign: "center",
+          marginBottom: 6,
+        }}
+      >
         My Orders
       </Text>
+      {error ? (
+        <Text style={{ color: "tomato", textAlign: "center", marginBottom: 8 }}>
+          {error}
+        </Text>
+      ) : null}
+
       <FlatList
         data={orders}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.order_id || item.id || String(index)}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="yellow"
+          />
+        }
         renderItem={({ item }) => (
           <TouchableOpacity
             style={{
@@ -37,11 +111,34 @@ export default function OrdersScreen({ navigation }) {
             }}
             onPress={() => navigation.navigate("OrderDetails", { order: item })}
           >
-            <Text style={{ color: "white", fontSize: 18 }}>{item.status.toUpperCase()}</Text>
-            <Text style={{ color: "gray" }}>{item.delivery_address}</Text>
-            <Text style={{ color: "yellow" }}>Total: ${item.total.toFixed(2)}</Text>
+            {renderStatusBadge(item.status)}
+            <Text style={{ color: "white", fontSize: 16, fontWeight: "600" }}>
+              {item.restaurant_name || "Restaurant"}
+            </Text>
+            <Text style={{ color: "gray", marginTop: 4 }}>
+              {item.delivery_address || "Delivery address unavailable"}
+            </Text>
+            <Text style={{ color: "gray", marginTop: 4, fontSize: 12 }}>
+              Placed:{" "}
+              {item.created_at ||
+                item.order_time ||
+                new Date().toLocaleString()}
+            </Text>
+            {item.total != null && (
+              <Text style={{ color: "yellow", marginTop: 6, fontWeight: "600" }}>
+                Total: $
+                {typeof item.total === "number"
+                  ? item.total.toFixed(2)
+                  : item.total}
+              </Text>
+            )}
           </TouchableOpacity>
         )}
+        ListEmptyComponent={
+          <Text style={{ color: "gray", marginTop: 20, textAlign: "center" }}>
+            You have not placed any orders yet.
+          </Text>
+        }
       />
     </View>
   );
